@@ -1,0 +1,11 @@
+# -----------------------------------------------------------------------------
+# Local development settings for docker-compose.yml
+# These are throwaway credentials for local dev only. Do not reuse them
+# anywhere real. Everyone on the team uses the same values so connection
+# strings match across machines.
+# -----------------------------------------------------------------------------
+
+# PostgreSQL
+POSTGRES_DB=readit
+POSTGRES_USER=readit
+POSTGRES_PASSWORD=readit
