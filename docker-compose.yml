@@ -1,0 +1,176 @@
+# =============================================================================
+# Readit - Local development infrastructure
+# =============================================================================
+# Brings up the backing services the whole team runs locally while developing
+# the Spring Boot + Vaadin application:
+#
+#   - PostgreSQL : primary database (users, posts, comments, votes, subreddits,
+#                  outbox, processed_events)
+#   - Redis      : cache / CQRS materialised feed views / session store
+#   - Kafka      : event streaming (post.events, vote.events, comment.events,
+#                  notification.events, outbox)
+#   - Zookeeper  : coordination service required by Kafka in this version
+#
+# The Spring Boot app itself is NOT in here. You run it from IntelliJ against
+# these services during development. An app service can be added later for the
+# full containerised deployment (Phase 6).
+#
+# Usage:
+#   docker compose up -d                 # start the four core services
+#   docker compose ps                    # check status / health
+#   docker compose --profile tools up -d # also start the Kafka UI (port 8080)
+#   docker compose down                  # stop (keeps data)
+#   docker compose down -v               # stop and wipe all data volumes
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Zookeeper - coordination service for Kafka
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.9.0
+    container_name: readit-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    networks:
+      - readit-net
+
+  # ---------------------------------------------------------------------------
+  # Kafka - event streaming broker
+  # ---------------------------------------------------------------------------
+  # Two listeners are configured so the broker is reachable both ways:
+  #   INTERNAL (kafka:29092)     -> used by other containers on readit-net
+  #                                 (e.g. the Kafka UI, or the app once
+  #                                 containerised)
+  #   EXTERNAL (localhost:9092)  -> used by the Spring Boot app running on your
+  #                                 host machine from the IDE
+  # This dual-listener setup is what avoids the classic "works in the container
+  # but not from my app" connection problem.
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.9.0
+    container_name: readit-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # Single-node cluster, so everything is replication factor 1
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Convenience for early development. The team should still create the
+      # project topics explicitly (partitions / config) once the event work
+      # lands. See the README for the commands.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - readit-net
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - primary relational database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: readit-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-readit}
+      POSTGRES_USER: ${POSTGRES_USER:-readit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-readit}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-readit} -d ${POSTGRES_DB:-readit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - readit-net
+
+  # ---------------------------------------------------------------------------
+  # Redis - cache, CQRS feed views, session store
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: readit-redis
+    ports:
+      - "6379:6379"
+    # appendonly keeps data across restarts; drop it if you want a pure cache
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - redis-data:/data
+    networks:
+      - readit-net
+
+  # ---------------------------------------------------------------------------
+  # Kafka UI (OPTIONAL) - web dashboard to inspect topics, messages, consumers
+  # ---------------------------------------------------------------------------
+  # Not part of the required stack. Only starts when you opt in with:
+  #   docker compose --profile tools up -d
+  # Then open http://localhost:8080
+  # ---------------------------------------------------------------------------
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: readit-kafka-ui
+    profiles: ["tools"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: readit-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - readit-net
+
+# -----------------------------------------------------------------------------
+# Named volumes keep your data between `docker compose down` and `up`.
+# Use `docker compose down -v` to wipe everything and start clean.
+# -----------------------------------------------------------------------------
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  postgres-data:
+  redis-data:
+
+networks:
+  readit-net:
+    driver: bridge
