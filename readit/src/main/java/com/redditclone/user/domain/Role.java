@@ -1,4 +1,9 @@
 package com.redditclone.user.domain;
 
-public class Role {
+public enum Role {
+    /*
+    Role enum: Main role enum: User roles
+     */
+
+    USER, ADMIN, MODERATOR
 }
