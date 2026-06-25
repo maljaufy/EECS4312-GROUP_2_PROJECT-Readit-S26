@@ -1,9 +1,15 @@
 package com.redditclone;
 
-public class RedditCloneApplication {
+import com.vaadin.flow.component.page.AppShellConfigurator;
+import com.vaadin.flow.component.page.Push;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-    /*
-    Reddit clone application: Main application: Reddit clone application
-    i.e. Main Spring Boot entry point
-    */
+@Push
+@SpringBootApplication
+public class RedditCloneApplication implements AppShellConfigurator {
+
+    public static void main(String[] args) {
+        SpringApplication.run(RedditCloneApplication.class, args);
+    }
 }
