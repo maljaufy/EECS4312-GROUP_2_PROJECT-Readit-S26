@@ -1,6 +1,5 @@
-package com.example.events.post.consumer;
+package com.notifications;
 
-import com.example.events.post.model.PostEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -9,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class PostEventConsumer {
+public class postEventConsumer {
 
     /**
      * Single listener covering all three event types on post.events.
@@ -22,12 +21,11 @@ public class PostEventConsumer {
      */
     @KafkaListener(
             topics = "${app.kafka.topics.post-events}",
-            groupId = "${spring.kafka.consumer.group-id}",
-            containerFactory = "kafkaListenerContainerFactory"
+            groupId = "${spring.kafka.consumer.group-id}"
     )
-    public void consume(ConsumerRecord<String, PostEvent> record, Acknowledgment ack) {
+    public void consume(ConsumerRecord<String, postEvent> record, Acknowledgment ack) {
 
-        PostEvent event = record.value();
+        postEvent event = record.value();
 
         log.info("Received {} | postId={} | partition={} | offset={}",
                 event.getEventType(),
@@ -56,19 +54,19 @@ public class PostEventConsumer {
 
     // ── Handlers — replace stubs with real business logic ────────────────────
 
-    private void handleCreated(PostEvent event) {
+    private void handleCreated(postEvent event) {
         log.info("[POST CREATED] postId={} title='{}' author={}",
                 event.getPostId(), event.getTitle(), event.getAuthorId());
         // e.g. persist to DB, update search index, send notification
     }
 
-    private void handleUpdated(PostEvent event) {
+    private void handleUpdated(postEvent event) {
         log.info("[POST UPDATED] postId={} newTitle='{}'",
                 event.getPostId(), event.getTitle());
         // e.g. update DB record, invalidate cache
     }
 
-    private void handleDeleted(PostEvent event) {
+    private void handleDeleted(postEvent event) {
         log.info("[POST DELETED] postId={}", event.getPostId());
         // e.g. soft-delete in DB, remove from search index
     }

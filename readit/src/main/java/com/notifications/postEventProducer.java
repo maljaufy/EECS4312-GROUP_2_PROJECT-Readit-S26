@@ -1,6 +1,5 @@
-package com.example.events.post.producer;
+package com.notifications;
 
-import com.example.events.post.model.PostEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,20 +14,19 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PostEventProducer {
+public class postEventProducer {
 
-    private final KafkaTemplate<String, PostEvent> kafkaTemplate;
+    private final KafkaTemplate<String, postEvent> kafkaTemplate;
 
     @Value("${app.kafka.topics.post-events}")
     private String topic;
 
-    // ── Public API ────────────────────────────────────────────────────────────
 
-    public CompletableFuture<SendResult<String, PostEvent>> publishCreated(
+    public CompletableFuture<SendResult<String, postEvent>> publishCreated(
             String authorId, String title, String content) {
 
-        PostEvent event = PostEvent.builder()
-                .eventType(PostEvent.EventType.POST_CREATED)
+        postEvent event = postEvent.builder()
+                .eventType(postEvent.EventType.POST_CREATED)
                 .postId(UUID.randomUUID().toString())
                 .authorId(authorId)
                 .title(title)
@@ -39,11 +37,11 @@ public class PostEventProducer {
         return send(event);
     }
 
-    public CompletableFuture<SendResult<String, PostEvent>> publishUpdated(
+    public CompletableFuture<SendResult<String, postEvent>> publishUpdated(
             String postId, String title, String content) {
 
-        PostEvent event = PostEvent.builder()
-                .eventType(PostEvent.EventType.POST_UPDATED)
+        postEvent event = postEvent.builder()
+                .eventType(postEvent.EventType.POST_UPDATED)
                 .postId(postId)
                 .title(title)
                 .content(content)
@@ -53,10 +51,10 @@ public class PostEventProducer {
         return send(event);
     }
 
-    public CompletableFuture<SendResult<String, PostEvent>> publishDeleted(String postId) {
+    public CompletableFuture<SendResult<String, postEvent>> publishDeleted(String postId) {
 
-        PostEvent event = PostEvent.builder()
-                .eventType(PostEvent.EventType.POST_DELETED)
+        postEvent event = postEvent.builder()
+                .eventType(postEvent.EventType.POST_DELETED)
                 .postId(postId)
                 .occurredAt(Instant.now())
                 .build();
@@ -70,10 +68,10 @@ public class PostEventProducer {
      * Sends an event using the postId as the partition key so all events
      * for the same post land on the same partition (ordering guarantee).
      */
-    private CompletableFuture<SendResult<String, PostEvent>> send(PostEvent event) {
+    private CompletableFuture<SendResult<String, postEvent>> send(postEvent event) {
         log.info("Publishing {} for postId={}", event.getEventType(), event.getPostId());
 
-        CompletableFuture<SendResult<String, PostEvent>> future =
+        CompletableFuture<SendResult<String, postEvent>> future =
                 kafkaTemplate.send(topic, event.getPostId(), event);
 
         future.whenComplete((result, ex) -> {

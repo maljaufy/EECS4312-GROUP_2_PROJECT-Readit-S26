@@ -21,13 +21,6 @@
         <vaadin.version>24.5.0</vaadin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-    <dependencies> 
-        <dependency>
-        <groupId>org.apache.kafka</groupId>
-        <artifactId>kafka-clients</artifactId>
-        <version>3.7.0</version>
-        </dependency>
-    </dependencies> 
 
     <dependencyManagement>
         <dependencies>
