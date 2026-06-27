@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: readit
+
+  docker:
+    compose:
+      enabled: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: readit-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.notifications"
+        spring.json.use.type.headers: false
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+      concurrency: 3
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/readit
+    username: readit
+    password: readit
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  kafka:
+    topics:
+      post-events: post.events
+      vote-events: vote.events
+      comment-events: comment.events
