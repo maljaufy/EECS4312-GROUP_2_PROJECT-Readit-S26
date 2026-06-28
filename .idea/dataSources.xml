@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="redditclone@localhost" uuid="174e9df4-ed34-4644-8a44-af948e99e5d6">
+    <data-source source="LOCAL" name="readit@localhost" uuid="5bcfdab3-562b-409e-bd10-772c833e7524">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <imported>true</imported>
       <remarks>$PROJECT_DIR$/readit/src/main/resources/application.properties</remarks>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
-      <jdbc-url>jdbc:postgresql://localhost:5432/redditclone</jdbc-url>
+      <jdbc-url>jdbc:postgresql://localhost:5432/readit</jdbc-url>
       <jdbc-additional-properties>
         <property name="com.intellij.clouds.kubernetes.db.host.port" />
         <property name="com.intellij.clouds.kubernetes.db.enabled" value="false" />
@@ -15,7 +15,7 @@
       </jdbc-additional-properties>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="postgres@localhost" uuid="7e908f1e-2f2e-402c-be30-789e2da0448c">
+    <data-source source="LOCAL" name="postgres@localhost" uuid="bc7c603c-5239-4cb4-940a-7d0c225d1e1e">
       <driver-ref>postgresql</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.postgresql.Driver</jdbc-driver>
