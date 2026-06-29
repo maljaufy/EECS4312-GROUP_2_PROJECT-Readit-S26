@@ -29,9 +29,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     //TODO: Implement Post entity first
     //@Query("SELECT COUNT(p) FROM Post p WHERE p.author.id = :userId")
-    long countPostsByUserId(@Param("userId") Long userId);
+    //long countPostsByUserId(@Param("userId") Long userId);
 
     // TODO: Implement Comment entity first
     // @Query("SELECT COUNT(c) FROM Comment c WHERE c.author.id = :userId")
-    long countCommentsByUserId(@Param("userId") Long userId);
+    //long countCommentsByUserId(@Param("userId") Long userId);
 }
