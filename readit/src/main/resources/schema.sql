@@ -2,6 +2,8 @@
 -- PostgreSQL Schema for User entity and related tables
 
 -- Drop existing tables if they exist (for clean setup)
+DROP TABLE IF EXISTS votes CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -24,6 +26,40 @@ CREATE TABLE users (
 -- Create index on username for faster lookups
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
+
+-- Comments table
+-- TODO: Add a foreign key for post_id once the Post table is implemented.
+CREATE TABLE comments (
+    id BIGSERIAL PRIMARY KEY,
+    post_id BIGINT NOT NULL,
+    author_id BIGINT NOT NULL,
+    body VARCHAR(5000) NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_comments_post_created ON comments(post_id, created_at);
+CREATE INDEX idx_comments_author ON comments(author_id);
+
+-- Votes table
+-- TODO: Add foreign keys for target_id once Post and Comment tables are implemented.
+CREATE TABLE votes (
+    id BIGSERIAL PRIMARY KEY,
+    version BIGINT,
+    voter_id BIGINT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id BIGINT NOT NULL,
+    value VARCHAR(20) NOT NULL,
+    CONSTRAINT fk_votes_voter FOREIGN KEY (voter_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT uk_vote_voter_target UNIQUE (voter_id, target_type, target_id)
+);
+
+CREATE INDEX idx_votes_target ON votes(target_type, target_id);
+CREATE INDEX idx_votes_voter ON votes(voter_id);
 
 -- Users roles table (for @ElementCollection in User entity)
 CREATE TABLE users_roles (

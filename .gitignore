@@ -1,3 +1,4 @@
+# ignoring built class files, can remove from ignore if wanted
 /readit/target/
 
 
