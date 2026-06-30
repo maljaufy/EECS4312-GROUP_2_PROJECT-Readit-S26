@@ -53,7 +53,16 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
     @Override
     public void setParameter(BeforeEvent event, String username) {
-        this.viewedUsername = username;
+        if (username == null || username.isEmpty()) {
+            try {
+                this.viewedUsername = userService.getCurrentUser().getUsername();
+            } catch (IllegalStateException e) {
+                getUI().ifPresent(ui -> ui.navigate("login"));
+                return;
+            }
+        } else {
+            this.viewedUsername = username;
+        }
         loadProfile();
         renderProfile();
     }
