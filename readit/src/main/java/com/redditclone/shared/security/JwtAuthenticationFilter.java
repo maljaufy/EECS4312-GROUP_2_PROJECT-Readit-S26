@@ -39,6 +39,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
             jwt = authorizationHeader.substring(7);
             username = jwtUtil.extractUsername(jwt);
+        } else {
+            // Check Vaadin session for JWT token
+            jakarta.servlet.http.HttpSession session = request.getSession(false);
+            if (session != null) {
+                jwt = (String) session.getAttribute("jwt");
+                if (jwt != null) {
+                    username = jwtUtil.extractUsername(jwt);
+                }
+            }
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
@@ -59,6 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter{
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/register") || path.startsWith("/login");
+        return path.startsWith("/register") || path.startsWith("/login") ||
+               path.startsWith("/vaadin") || path.startsWith("/VAADIN") ||
+               path.startsWith("/frontend") || path.startsWith("/webjars");
     }
 }

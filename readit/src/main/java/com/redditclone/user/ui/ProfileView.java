@@ -1,8 +1,171 @@
 package com.redditclone.user.ui;
 
-public class ProfileView {
+import com.redditclone.user.dto.UserProfileDto;
+import com.redditclone.user.service.UserService;
+import com.redditclone.user.ui.component.KarmaDisplay;
+import com.vaadin.flow.component.Composite;
+import com.vaadin.flow.component.avatar.Avatar;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEvent;
+import com.vaadin.flow.router.HasUrlParameter;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouterLink;
+import com.vaadin.flow.spring.annotation.UIScope;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.format.DateTimeFormatter;
+
+@Route("profile")
+@PageTitle("Profile | Reddit Clone")
+@UIScope
+public class ProfileView extends Composite<VerticalLayout> implements HasUrlParameter<String>{
     /*
     Profile view: Main profile view: User profile view
     i.e. Profile UI
     */
+
+    @Autowired
+    private UserService userService;
+
+    private UserProfileDto currentProfile;
+    private String viewedUsername;
+
+    private Avatar avatar;
+    private H1 usernameHeader;
+    private KarmaDisplay karmaDisplay;
+    private Paragraph joinedDate;
+    private Paragraph postCount;
+    private Paragraph commentCount;
+    private TextArea bioDisplay;
+    private TextArea bioEdit;
+    private Button editToggleButton;
+    private Button saveButton;
+    private boolean isEditing = false;
+
+    @Override
+    public void setParameter(BeforeEvent event, String username) {
+        if (username == null || username.isEmpty()) {
+            try {
+                this.viewedUsername = userService.getCurrentUser().getUsername();
+            } catch (IllegalStateException e) {
+                getUI().ifPresent(ui -> ui.navigate("login"));
+                return;
+            }
+        } else {
+            this.viewedUsername = username;
+        }
+        loadProfile();
+        renderProfile();
+    }
+
+    private void loadProfile() {
+        currentProfile = userService.getUserProfile(viewedUsername);
+    }
+
+    private void renderProfile() {
+        getContent().removeAll();
+        getContent().setSizeFull();
+        getContent().setAlignItems(Alignment.CENTER);
+
+        // Header with avatar and username
+        HorizontalLayout header = new HorizontalLayout();
+        header.setAlignItems(Alignment.CENTER);
+        header.setSpacing(true);
+
+        avatar = new Avatar(currentProfile.getUsername());
+        if (currentProfile.getProfileImageUrl() != null && !currentProfile.getProfileImageUrl().isEmpty()) {
+            avatar.setImage(currentProfile.getProfileImageUrl());
+        }
+        avatar.setWidth("80px");
+        avatar.setHeight("80px");
+
+        VerticalLayout userInfo = new VerticalLayout();
+        usernameHeader = new H1(currentProfile.getUsername());
+        usernameHeader.getStyle().set("margin", "0");
+
+        karmaDisplay = new KarmaDisplay(currentProfile.getKarma());
+        userInfo.add(usernameHeader, karmaDisplay);
+
+        header.add(avatar, userInfo);
+        getContent().add(header);
+
+        // Stats
+        HorizontalLayout stats = new HorizontalLayout();
+        stats.setSpacing(true);
+
+        joinedDate = new Paragraph("Joined: " + currentProfile.getJoinedAt().format(DateTimeFormatter.ofPattern("MMMM d, yyyy")));
+        joinedDate.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        postCount = new Paragraph("Posts: " + currentProfile.getPostCount());
+        commentCount = new Paragraph("Comments: " + currentProfile.getCommentCount());
+
+        stats.add(joinedDate, postCount, commentCount);
+        getContent().add(stats);
+
+        // Bio
+        bioDisplay = new TextArea();
+        bioDisplay.setLabel("Bio");
+        bioDisplay.setValue(currentProfile.getBio() != null ? currentProfile.getBio() : "");
+        bioDisplay.setReadOnly(true);
+        bioDisplay.setWidthFull();
+
+        bioEdit = new TextArea();
+        bioEdit.setLabel("Edit Bio");
+        bioEdit.setValue(currentProfile.getBio() != null ? currentProfile.getBio() : "");
+        bioEdit.setWidthFull();
+        bioEdit.setVisible(false);
+
+        getContent().add(bioDisplay, bioEdit);
+
+        // Edit buttons (only if viewing own profile)
+        try {
+            String currentUsername = userService.getCurrentUser().getUsername();
+            if (currentUsername.equals(viewedUsername)) {
+                editToggleButton = new Button("Edit Profile", e -> toggleEdit());
+                saveButton = new Button("Save", e -> saveProfile());
+                saveButton.setVisible(false);
+                HorizontalLayout buttonLayout = new HorizontalLayout(editToggleButton, saveButton);
+                getContent().add(buttonLayout);
+            }
+        } catch (IllegalStateException e) {
+            // Not logged in - no edit buttons
+        }
+
+        // Navigation
+        RouterLink backToFeed = new RouterLink("← Back to Feed", LoginView.class);
+        getContent().add(backToFeed);
+    }
+
+    private void toggleEdit() {
+        isEditing = !isEditing;
+        bioDisplay.setVisible(!isEditing);
+        bioEdit.setVisible(isEditing);
+        editToggleButton.setText(isEditing ? "Cancel" : "Edit Profile");
+        saveButton.setVisible(isEditing);
+    }
+
+    private void saveProfile() {
+        try {
+            UserProfileDto updated = userService.updateProfile(
+                    userService.getCurrentUser().getId(),
+                    bioEdit.getValue(),
+                    null // profileImageUrl not implemented yet
+            );
+            currentProfile = updated;
+            loadProfile(); // Reload
+            toggleEdit(); // Exit edit mode
+            Notification.show("Profile updated successfully!", 3000, Notification.Position.MIDDLE);
+        } catch (Exception e) {
+            Notification.show("Error updating profile: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
+        }
+    }
 }

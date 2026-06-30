@@ -1,0 +1,18 @@
+{
+  "frontendFolder": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/./src/main/frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/./src/main/frontend/generated/jar-resources",
+  "staticOutput": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/target/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "C:\\Users\\Samir Shaaban Hassan\\IdeaProjects\\EECS4312-GROUP_2_PROJECT-Readit-S26\\readit\\target\\classes\\META-INF\\VAADIN\\config",
+  "frontendBundleOutput": "C:\\Users\\Samir Shaaban Hassan\\IdeaProjects\\EECS4312-GROUP_2_PROJECT-Readit-S26\\readit\\target\\classes\\META-INF\\VAADIN\\webapp",
+  "devBundleOutput": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/target/dev-bundle/webapp",
+  "devBundleStatsOutput": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/target/dev-bundle/config",
+  "i18nOutput": "target/classes/vaadin-i18n",
+  "jarResourcesFolder": "C:/Users/Samir Shaaban Hassan/IdeaProjects/EECS4312-GROUP_2_PROJECT-Readit-S26/readit/./src/main/frontend/generated/jar-resources",
+  "themeName": "reddit-clone",
+  "clientServiceWorkerSource": "C:\\Users\\Samir Shaaban Hassan\\IdeaProjects\\EECS4312-GROUP_2_PROJECT-Readit-S26\\readit\\target\\sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}

@@ -138,8 +138,10 @@ public class UserService {
      */
     public UserProfileDto getUserProfile(String username) {
         User user = findByUsername(username);
-        long postCount = userRepository.countPostsByUserId(user.getId());
-        long commentCount = userRepository.countCommentsByUserId(user.getId());
+        // TODO: Uncomment when Post entity is implemented
+        // long postCount = userRepository.countPostsByUserId(user.getId());
+        // TODO: Uncomment when Comment entity is implemented
+        // long commentCount = userRepository.countCommentsByUserId(user.getId());
 
         return UserProfileDto.builder()
                 .id(user.getId())
@@ -150,8 +152,8 @@ public class UserService {
                 .profileImageUrl(user.getProfileImageUrl())
                 .roles(user.getRoles())
                 .joinedAt(user.getCreatedAt())
-                .postCount(postCount)
-                .commentCount(commentCount)
+                .postCount(0) // TODO: Replace with actual count when Post entity is implemented
+                .commentCount(0) // TODO: Replace with actual count when Comment entity is implemented
                 .build();
     }
 
@@ -161,10 +163,10 @@ public class UserService {
      * @param userId        the user ID
      * @param bio           the new bio
      * @param profileImageUrl the new profile image URL
-     * @return the updated user
+     * @return the updated profile DTO
      */
     @Transactional
-    public User updateProfile(Long userId, String bio, String profileImageUrl) {
+    public UserProfileDto updateProfile(Long userId, String bio, String profileImageUrl) {
         User user = findById(userId);
         if (bio != null) {
             user.setBio(bio);
@@ -172,7 +174,8 @@ public class UserService {
         if (profileImageUrl != null) {
             user.setProfileImageUrl(profileImageUrl);
         }
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+        return getUserProfile(updatedUser.getUsername());
     }
 
     /**
