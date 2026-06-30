@@ -16,7 +16,7 @@ from your IDE and connects to these services.
 
 ## Prerequisites
 
-- Docker Desktop installed and running.
+- Docker Desktop installed and running
 
 ## Quick start
 
