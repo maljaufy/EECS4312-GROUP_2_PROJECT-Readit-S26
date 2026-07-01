@@ -4,6 +4,8 @@
 -- Drop existing tables if they exist (for clean setup)
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS subreddits CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -27,8 +29,42 @@ CREATE TABLE users (
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 
+-- Subreddits table
+CREATE TABLE subreddits (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(500),
+    is_private BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_subreddits_name ON subreddits(name);
+
+-- Posts table
+CREATE TABLE posts (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(300) NOT NULL,
+    content VARCHAR(10000),
+    author_id BIGINT NOT NULL,
+    subreddit_id BIGINT NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_posts_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_posts_subreddit FOREIGN KEY (subreddit_id) REFERENCES subreddits(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_posts_author ON posts(author_id);
+CREATE INDEX idx_posts_subreddit_created ON posts(subreddit_id, created_at);
+CREATE INDEX idx_posts_created ON posts(created_at);
+
 -- Comments table
--- TODO: Add a foreign key for post_id once the Post table is implemented.
 CREATE TABLE comments (
     id BIGSERIAL PRIMARY KEY,
     post_id BIGINT NOT NULL,
@@ -39,6 +75,7 @@ CREATE TABLE comments (
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -46,15 +83,24 @@ CREATE INDEX idx_comments_post_created ON comments(post_id, created_at);
 CREATE INDEX idx_comments_author ON comments(author_id);
 
 -- Votes table
--- TODO: Add foreign keys for target_id once Post and Comment tables are implemented.
 CREATE TABLE votes (
     id BIGSERIAL PRIMARY KEY,
     version BIGINT,
     voter_id BIGINT NOT NULL,
     target_type VARCHAR(20) NOT NULL,
     target_id BIGINT NOT NULL,
+    post_target_id BIGINT GENERATED ALWAYS AS (
+        CASE WHEN target_type = 'POST' THEN target_id ELSE NULL END
+    ) STORED,
+    comment_target_id BIGINT GENERATED ALWAYS AS (
+        CASE WHEN target_type = 'COMMENT' THEN target_id ELSE NULL END
+    ) STORED,
     value VARCHAR(20) NOT NULL,
+    CONSTRAINT chk_votes_target_type CHECK (target_type IN ('POST', 'COMMENT')),
+    CONSTRAINT chk_votes_value CHECK (value IN ('UPVOTE', 'DOWNVOTE')),
     CONSTRAINT fk_votes_voter FOREIGN KEY (voter_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_votes_post_target FOREIGN KEY (post_target_id) REFERENCES posts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_votes_comment_target FOREIGN KEY (comment_target_id) REFERENCES comments(id) ON DELETE CASCADE,
     CONSTRAINT uk_vote_voter_target UNIQUE (voter_id, target_type, target_id)
 );
 

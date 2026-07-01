@@ -1,5 +1,8 @@
 package com.redditclone.voting.service;
 
+import com.redditclone.posts.domain.Post;
+import com.redditclone.posts.repository.PostRepository;
+import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.redditclone.voting.domain.Vote;
 import com.redditclone.voting.domain.VoteTargetType;
@@ -27,23 +30,28 @@ class VoteServiceTest {
     private VoteRepository voteRepository;
 
     @Mock
+    private PostRepository postRepository;
+
+    @Mock
     private UserService userService;
 
     private VoteService voteService;
 
     @BeforeEach
     void setUp() {
-        voteService = new VoteService(voteRepository, userService);
+        voteService = new VoteService(voteRepository, postRepository, userService);
     }
 
     @Test
     @DisplayName("Should create an upvote and add one karma")
     void upvotePost_CreatesVoteAndAddsKarma() {
+        givenPostWithAuthor(10L, 2L);
+        givenVoter(1L);
         when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
                 .thenReturn(Optional.empty());
         when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(1);
 
-        VoteResult result = voteService.upvotePost(1L, 10L, 2L);
+        VoteResult result = voteService.upvotePost(1L, 10L);
 
         ArgumentCaptor<Vote> voteCaptor = ArgumentCaptor.forClass(Vote.class);
         verify(voteRepository).save(voteCaptor.capture());
@@ -62,12 +70,14 @@ class VoteServiceTest {
     @Test
     @DisplayName("Should switch downvote to upvote and add two karma")
     void upvotePost_SwitchesExistingDownvote() {
+        givenPostWithAuthor(10L, 2L);
+        givenVoter(1L);
         Vote existingVote = new Vote(1L, VoteTargetType.POST, 10L, VoteValue.DOWNVOTE);
         when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
                 .thenReturn(Optional.of(existingVote));
         when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(1);
 
-        VoteResult result = voteService.upvotePost(1L, 10L, 2L);
+        VoteResult result = voteService.upvotePost(1L, 10L);
 
         assertEquals(VoteValue.UPVOTE, existingVote.getValue());
         verify(voteRepository).save(existingVote);
@@ -79,12 +89,14 @@ class VoteServiceTest {
     @Test
     @DisplayName("Should leave repeated same vote unchanged")
     void voteOnPost_RepeatedSameVoteIsIdempotent() {
+        givenPostWithAuthor(10L, 2L);
+        givenVoter(1L);
         Vote existingVote = new Vote(1L, VoteTargetType.POST, 10L, VoteValue.UPVOTE);
         when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
                 .thenReturn(Optional.of(existingVote));
         when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(1);
 
-        VoteResult result = voteService.upvotePost(1L, 10L, 2L);
+        VoteResult result = voteService.upvotePost(1L, 10L);
 
         verify(voteRepository, never()).save(any());
         verify(userService, never()).updateKarma(anyLong(), anyInt());
@@ -95,12 +107,14 @@ class VoteServiceTest {
     @Test
     @DisplayName("Should remove existing vote and reverse karma")
     void removePostVote_RemovesVoteAndReversesKarma() {
+        givenPostWithAuthor(10L, 2L);
+        givenVoter(1L);
         Vote existingVote = new Vote(1L, VoteTargetType.POST, 10L, VoteValue.DOWNVOTE);
         when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
                 .thenReturn(Optional.of(existingVote));
         when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(0);
 
-        VoteResult result = voteService.removePostVote(1L, 10L, 2L);
+        VoteResult result = voteService.removePostVote(1L, 10L);
 
         verify(voteRepository).delete(existingVote);
         verify(userService).updateKarma(2L, 1);
@@ -112,12 +126,45 @@ class VoteServiceTest {
     @Test
     @DisplayName("Should reject votes on own posts")
     void voteOnPost_RejectsSelfVote() {
+        givenPostWithAuthor(10L, 1L);
+
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> voteService.downvotePost(1L, 10L, 1L)
+                () -> voteService.downvotePost(1L, 10L)
         );
 
         assertEquals("Users cannot vote on their own posts", exception.getMessage());
         verifyNoInteractions(voteRepository, userService);
+    }
+
+    @Test
+    @DisplayName("Should reject votes on missing posts")
+    void voteOnPost_RejectsMissingPost() {
+        when(postRepository.findById(10L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> voteService.upvotePost(1L, 10L)
+        );
+
+        assertEquals("Post not found with ID: 10", exception.getMessage());
+        verifyNoInteractions(voteRepository, userService);
+    }
+
+    private void givenPostWithAuthor(Long postId, Long authorId) {
+        Post post = new Post();
+        post.setId(postId);
+        post.setAuthor(userWithId(authorId));
+        when(postRepository.findById(postId)).thenReturn(Optional.of(post));
+    }
+
+    private void givenVoter(Long voterId) {
+        when(userService.findById(voterId)).thenReturn(userWithId(voterId));
+    }
+
+    private User userWithId(Long id) {
+        User user = new User();
+        user.setId(id);
+        return user;
     }
 }
