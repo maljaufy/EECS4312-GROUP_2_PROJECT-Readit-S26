@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 import org.springframework.security.test.context.support.WithMockUser;
@@ -16,13 +18,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.kafka.bootstrap-servers=localhost:9092",
-    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+    "spring.kafka.bootstrap-servers=localhost:9092"
 })
 @DisplayName("Security Configuration Integration Tests")
 public class SecurityConfigTest {
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     // Mock Vaadin views if they cause issues; but we can just test endpoints.
     // For endpoints that are not mapped, we get 404; but that's fine.
