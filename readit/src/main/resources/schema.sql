@@ -69,3 +69,49 @@ CREATE TABLE outbox_event (
 
 CREATE INDEX idx_outbox_event_status ON outbox_event(status);
 CREATE INDEX idx_outbox_event_created_at ON outbox_event(created_at);
+
+-- Subreddits table
+DROP TABLE IF EXISTS subreddits CASCADE;
+
+CREATE TABLE subreddits (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(500),
+    is_private BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_subreddits_name ON subreddits(name);
+
+-- Trigger to automatically update updated_at for subreddits table
+CREATE TRIGGER update_subreddits_updated_at BEFORE UPDATE ON subreddits
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Posts table
+DROP TABLE IF EXISTS posts CASCADE;
+
+CREATE TABLE posts (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(300) NOT NULL,
+    content VARCHAR(10000),
+    author_id BIGINT NOT NULL,
+    subreddit_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_by VARCHAR(255),
+    version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_posts_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_posts_subreddit FOREIGN KEY (subreddit_id) REFERENCES subreddits(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_posts_author ON posts(author_id);
+CREATE INDEX idx_posts_subreddit ON posts(subreddit_id);
+
+-- Trigger to automatically update updated_at for posts table
+CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
