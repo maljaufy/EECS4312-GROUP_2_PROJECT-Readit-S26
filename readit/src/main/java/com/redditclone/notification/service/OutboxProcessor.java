@@ -39,7 +39,7 @@ public class OutboxProcessor {
 
         for (OutboxEvent event : pendingEvents) {
             try {
-                String topic = event.getEventType().toLowerCase().replace("event", "") + ".events";
+                String topic = getTopicForEventType(event.getEventType());
                 kafkaTemplate.send(topic, event.getAggregateId(), event.getPayload());
                 event.setStatus("PUBLISHED");
                 event.setPublishedAt(LocalDateTime.now());
@@ -53,6 +53,20 @@ public class OutboxProcessor {
                 outboxRepository.save(event);
             }
         }
+    }
+
+    /**
+     * Maps event types to Kafka topic names.
+     */
+    private String getTopicForEventType(String eventType) {
+        return switch (eventType) {
+            case "UserRegisteredEvent" -> "user.events";
+            case "PostCreatedEvent" -> "post.events";
+            case "VoteCastEvent" -> "vote.events";
+            case "CommentAddedEvent" -> "comment.events";
+            case "NotificationEvent" -> "notification.events";
+            default -> throw new IllegalArgumentException("Unknown event type: " + eventType);
+        };
     }
 
 }

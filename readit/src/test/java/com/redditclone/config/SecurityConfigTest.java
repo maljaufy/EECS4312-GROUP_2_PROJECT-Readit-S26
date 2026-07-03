@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -14,6 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+    "spring.kafka.bootstrap-servers=localhost:9092",
+    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
+})
 @DisplayName("Security Configuration Integration Tests")
 public class SecurityConfigTest {
     @Autowired
@@ -38,7 +43,7 @@ public class SecurityConfigTest {
         // /profile and /feed require authentication
         mockMvc.perform(get("http://localhost:8081/feed"))
                 .andExpect(status().isFound()); // Redirect to login (302)
-        mockMvc.perform(get("localhost:8081/profile"))
+        mockMvc.perform(get("http://localhost:8081/profile"))
                 .andExpect(status().isFound());
     }
 
