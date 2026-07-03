@@ -2,6 +2,7 @@
 -- PostgreSQL Schema for User entity and related tables
 
 -- Drop existing tables if they exist (for clean setup)
+DROP TABLE IF EXISTS user_roles CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -50,3 +51,21 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 -- This is just for initial setup - change the password immediately
 INSERT INTO users (username, email, password_hash, karma, created_by, updated_by)
 VALUES ('admin', 'admin@readit.com', '$2a$10$placeholder_hash_change_me', 0, 'system', 'system');
+
+-- Outbox event table for event sourcing pattern
+DROP TABLE IF EXISTS outbox_event CASCADE;
+
+CREATE TABLE outbox_event (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    aggregate_id VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP,
+    retry_count INTEGER DEFAULT 0,
+    error_message VARCHAR(500)
+);
+
+CREATE INDEX idx_outbox_event_status ON outbox_event(status);
+CREATE INDEX idx_outbox_event_created_at ON outbox_event(created_at);
