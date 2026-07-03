@@ -1,11 +1,13 @@
--- Reddit Clone Database Schema - User Module
--- PostgreSQL Schema for User entity and related tables
+-- Reddit Clone Database Schema - User Module and Related Tables
+-- PostgreSQL Schema for User entity, posts, comments, voting, and outbox
 
 -- Drop existing tables if they exist (for clean setup)
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS outbox_event CASCADE;
 DROP TABLE IF EXISTS subreddits CASCADE;
+DROP TABLE IF EXISTS user_roles CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -25,9 +27,42 @@ CREATE TABLE users (
     version BIGINT NOT NULL DEFAULT 0
 );
 
--- Create index on username for faster lookups
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
+
+-- Function to automatically update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger to automatically update updated_at for users table
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Insert default admin user (password should be hashed in production)
+-- This is just for initial setup - change the password immediately
+INSERT INTO users (username, email, password_hash, karma, created_by, updated_by)
+VALUES ('admin', 'admin@readit.com', '$2a$10$placeholder_hash_change_me', 0, 'system', 'system');
+
+-- Outbox event table for event sourcing pattern
+CREATE TABLE outbox_event (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    aggregate_id VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP,
+    retry_count INTEGER DEFAULT 0,
+    error_message VARCHAR(500)
+);
+
+CREATE INDEX idx_outbox_event_status ON outbox_event(status);
+CREATE INDEX idx_outbox_event_created_at ON outbox_event(created_at);
 
 -- Subreddits table
 CREATE TABLE subreddits (
@@ -35,14 +70,18 @@ CREATE TABLE subreddits (
     name VARCHAR(50) NOT NULL UNIQUE,
     description VARCHAR(500),
     is_private BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     version BIGINT NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_subreddits_name ON subreddits(name);
+
+-- Trigger to automatically update updated_at for subreddits table
+CREATE TRIGGER update_subreddits_updated_at BEFORE UPDATE ON subreddits
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Posts table
 CREATE TABLE posts (
@@ -51,8 +90,8 @@ CREATE TABLE posts (
     content VARCHAR(10000),
     author_id BIGINT NOT NULL,
     subreddit_id BIGINT NOT NULL,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     version BIGINT NOT NULL DEFAULT 0,
@@ -61,8 +100,11 @@ CREATE TABLE posts (
 );
 
 CREATE INDEX idx_posts_author ON posts(author_id);
-CREATE INDEX idx_posts_subreddit_created ON posts(subreddit_id, created_at);
-CREATE INDEX idx_posts_created ON posts(created_at);
+CREATE INDEX idx_posts_subreddit ON posts(subreddit_id);
+
+-- Trigger to automatically update updated_at for posts table
+CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Comments table
 CREATE TABLE comments (
@@ -70,8 +112,8 @@ CREATE TABLE comments (
     post_id BIGINT NOT NULL,
     author_id BIGINT NOT NULL,
     body VARCHAR(5000) NOT NULL,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     version BIGINT NOT NULL DEFAULT 0,
@@ -114,21 +156,3 @@ CREATE TABLE users_roles (
     PRIMARY KEY (user_id, role),
     CONSTRAINT fk_users_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
--- Function to automatically update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- Trigger to automatically update updated_at for users table
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Insert default admin user (password should be hashed in production)
--- This is just for initial setup - change the password immediately
-INSERT INTO users (username, email, password_hash, karma, created_by, updated_by)
-VALUES ('admin', 'admin@readit.com', '$2a$10$placeholder_hash_change_me', 0, 'system', 'system');
