@@ -91,6 +91,4 @@ public class Vote {
     public void setValue(VoteValue value) {
         this.value = value;
     }
-
-    // TODO: Replace voterId and targetId with entity relationships once User/Post/Comment entities are available.
 }
