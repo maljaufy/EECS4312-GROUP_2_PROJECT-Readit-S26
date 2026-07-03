@@ -5,8 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 import org.springframework.security.test.context.support.WithMockUser;
@@ -18,15 +16,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.kafka.bootstrap-servers=localhost:9092"
+    "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration"
 })
 @DisplayName("Security Configuration Integration Tests")
 public class SecurityConfigTest {
     @Autowired
     private MockMvc mockMvc;
-
-    @MockBean
-    private KafkaTemplate<String, String> kafkaTemplate;
 
     // Mock Vaadin views if they cause issues; but we can just test endpoints.
     // For endpoints that are not mapped, we get 404; but that's fine.
@@ -34,7 +29,7 @@ public class SecurityConfigTest {
     @Test
     @DisplayName("Public endpoints should be accessible without authentication")
     void publicEndpoints_ShouldBeAccessible() throws Exception {
-        // /register and /login are permitAll
+        // /register and /log in are permitAll
         mockMvc.perform(get("http://localhost:8081/register"))
                 .andExpect(status().isOk()); // Should return Vaadin view if not redirected
         mockMvc.perform(get("http://localhost:8081/login"))
@@ -52,7 +47,7 @@ public class SecurityConfigTest {
     }
 
     @Test
-    @WithMockUser(username = "testuser", roles = "USER")
+    @WithMockUser(username = "testUser", roles = "USER")
     @DisplayName("Authenticated user should access protected endpoints")
     void authenticatedUser_ShouldAccessProtectedEndpoints() throws Exception {
         mockMvc.perform(get("/feed"))
