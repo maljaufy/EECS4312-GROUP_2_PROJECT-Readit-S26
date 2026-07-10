@@ -1,32 +1,34 @@
 package com.redditclone.shared.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.redditclone.notification.domain.OutboxEvent;
+import com.redditclone.notification.repository.OutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class KafkaEventPublisher implements EventPublisher {
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
-
-    /*
-    Kafka implementation
-    */
 
     @Override
     public void publish(DomainEvent event) {
         try {
-            String topic = event.getEventType().toLowerCase();
             String payload = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send(topic, event.getAggregateId(), payload);
-            log.info("Published event {} to topic {}", event.getEventType(), topic);
-        } catch (Exception e) {
-            log.error("Failed to publish event {}", event.getEventType(), e);
-            throw new RuntimeException("Failed to publish event", e);
+            OutboxEvent outboxEvent = new OutboxEvent();
+            outboxEvent.setEventType(event.getEventType());
+            outboxEvent.setAggregateId(event.getAggregateId());
+            outboxEvent.setPayload(payload);
+            outboxEvent.setStatus("PENDING");
+            outboxRepository.save(outboxEvent);
+            log.debug("Stored event in outbox: {} ({})", event.getEventType(), event.getEventId());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event: {}", event.getEventType(), e);
+            throw new RuntimeException("Failed to serialize event", e);
         }
     }
 }
