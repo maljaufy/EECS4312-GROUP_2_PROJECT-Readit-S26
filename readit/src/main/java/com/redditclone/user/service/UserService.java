@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -122,12 +123,14 @@ public class UserService {
      * @param userId the user ID
      * @param delta  the karma change (positive or negative)
      */
+    /**
+     * Updates a user's karma by recalculating from all posts and comments.
+     */
     @Transactional
     public void updateKarma(Long userId, int delta) {
-        User user = findById(userId);
-        user.addKarma(delta);
-        userRepository.save(user);
-        log.debug("Updated karma for user {}: +{} (now {})", user.getUsername(), delta, user.getKarma());
+        // Delta is ignored in this approach; we recalculate from all votes
+        recalculateKarma(userId);
+        log.debug("Updated karma for user {}", userId);
     }
 
     /**
@@ -138,10 +141,8 @@ public class UserService {
      */
     public UserProfileDto getUserProfile(String username) {
         User user = findByUsername(username);
-        // TODO: Uncomment when Post entity is implemented
-        // long postCount = userRepository.countPostsByUserId(user.getId());
-        // TODO: Uncomment when Comment entity is implemented
-        // long commentCount = userRepository.countCommentsByUserId(user.getId());
+        long postCount = userRepository.countPostsByUserId(user.getId());
+        long commentCount = userRepository.countCommentsByUserId(user.getId());
 
         return UserProfileDto.builder()
                 .id(user.getId())
@@ -152,8 +153,8 @@ public class UserService {
                 .profileImageUrl(user.getProfileImageUrl())
                 .roles(user.getRoles())
                 .joinedAt(user.getCreatedAt())
-                .postCount(0) // TODO: Replace with actual count when Post entity is implemented
-                .commentCount(0) // TODO: Replace with actual count when Comment entity is implemented
+                .postCount(postCount)
+                .commentCount(commentCount)
                 .build();
     }
 
@@ -237,6 +238,40 @@ public class UserService {
         user.addRole(Role.ADMIN);
         userRepository.save(user);
         log.info("Promoted user {} to admin", user.getUsername());
+    }
+
+    /**
+     * Calculates a user's total karma from their posts and comments.
+     * Recalculates and updates the user's karma field.
+     */
+    @Transactional
+    public void recalculateKarma(Long userId) {
+        User user = findById(userId);
+
+        // Get total vote score from all posts by this user
+        int postVoteScore = userRepository.getPostVoteScoreByUserId(userId);
+
+        // Get total vote score from all comments by this user
+        int commentVoteScore = userRepository.getCommentVoteScoreByUserId(userId);
+
+        int totalKarma = postVoteScore + commentVoteScore;
+        user.setKarma(totalKarma);
+        userRepository.save(user);
+
+        log.info("Recalculated karma for user {}: {}", user.getUsername(), totalKarma);
+    }
+
+    /**
+     * Recalculates karma for all users (batch operation).
+     * Useful for scheduled jobs or fixing inconsistencies.
+     */
+    @Transactional
+    public void recalculateAllKarma() {
+        List<User> allUsers = userRepository.findAll();
+        for (User user : allUsers) {
+            recalculateKarma(user.getId());
+        }
+        log.info("Recalculated karma for {} users", allUsers.size());
     }
 
 }

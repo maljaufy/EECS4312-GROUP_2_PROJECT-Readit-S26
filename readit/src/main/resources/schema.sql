@@ -90,6 +90,7 @@ CREATE TABLE posts (
     content VARCHAR(10000),
     author_id BIGINT NOT NULL,
     subreddit_id BIGINT NOT NULL,
+    vote_score INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
@@ -112,13 +113,16 @@ CREATE TABLE comments (
     post_id BIGINT NOT NULL,
     author_id BIGINT NOT NULL,
     body VARCHAR(5000) NOT NULL,
+    vote_score INTEGER NOT NULL DEFAULT 0,
+    parent_comment_id BIGINT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     updated_by VARCHAR(255),
     version BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT fk_comments_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT fk_comments_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_comments_post_created ON comments(post_id, created_at);

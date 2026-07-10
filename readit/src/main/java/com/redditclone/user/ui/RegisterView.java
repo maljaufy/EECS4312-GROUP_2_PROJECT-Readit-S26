@@ -4,8 +4,11 @@ import com.redditclone.user.dto.RegistrationDto;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
@@ -45,52 +48,96 @@ public class RegisterView extends Composite<VerticalLayout>{
         getContent().setSizeFull();
         getContent().setAlignItems(Alignment.CENTER);
         getContent().setJustifyContentMode(JustifyContentMode.CENTER);
+        getContent().getStyle()
+            .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
+            .set("padding", "20px");
+
+        // Create card container
+        VerticalLayout card = new VerticalLayout();
+        card.setWidth("450px");
+        card.setPadding(true);
+        card.setSpacing(true);
+        card.getStyle()
+            .set("background", "white")
+            .set("border-radius", "16px")
+            .set("box-shadow", "0 8px 32px rgba(0, 0, 0, 0.1)")
+            .set("padding", "40px");
+
+        // Logo/Icon
+        H2 logo = new H2("📱 Readit");
+        logo.getStyle()
+            .set("margin", "0 0 10px 0")
+            .set("text-align", "center")
+            .set("color", "#F5DEB3");
 
         H1 title = new H1("Join Readit");
-        title.getStyle().set("margin-bottom", "20px");
+        title.getStyle()
+            .set("margin", "0 0 8px 0")
+            .set("text-align", "center")
+            .set("font-size", "28px")
+            .set("font-weight", "600")
+            .set("color", "#F5DEB3");
 
-        Paragraph subtitle = new Paragraph("Create your account to start exploring communities.");
-        subtitle.getStyle().set("color", "var(--lumo-secondary-text-color)");
-
-        VerticalLayout form = new VerticalLayout();
-        form.add(username, email, password, confirmPassword, registerButton);
-        form.setMaxWidth("600px");
-        form.setPadding(false);
-        form.setSpacing(true);
+        Paragraph subtitle = new Paragraph("Create your account to start exploring communities");
+        subtitle.getStyle()
+            .set("margin", "0 0 30px 0")
+            .set("text-align", "center")
+            .set("color", "#666");
 
         username.setRequired(true);
         username.setMinLength(3);
         username.setWidthFull();
         username.setMaxLength(50);
+        username.setPrefixComponent(VaadinIcon.USER.create());
         username.setHelperText("3-50 characters");
         username.setErrorMessage("Please enter a valid username");
+        username.getStyle().set("margin-bottom", "12px");
 
         email.setRequired(true);
         email.setErrorMessage("Please enter a valid email address");
         email.setWidthFull();
         email.setMaxLength(100);
+        email.setPrefixComponent(VaadinIcon.ENVELOPE.create());
         email.setHelperText("Enter your email address");
         email.setErrorMessage("Please enter a valid email address");
+        email.getStyle().set("margin-bottom", "12px");
 
         password.setRequired(true);
         password.setMinLength(8);
         password.setHelperText("At least 8 characters");
         password.setWidthFull();
         password.setMaxLength(100);
-        password.setHelperText("Enter your password");
+        password.setPrefixComponent(VaadinIcon.LOCK.create());
+        password.setHelperText("At least 8 characters");
         password.setErrorMessage("Please enter a valid password");
+        password.getStyle().set("margin-bottom", "12px");
 
         confirmPassword.setRequired(true);
         confirmPassword.setWidthFull();
         confirmPassword.setMaxLength(100);
-        confirmPassword.setHelperText("Enter your password");
+        confirmPassword.setPrefixComponent(VaadinIcon.LOCK.create());
+        confirmPassword.setHelperText("Re-enter your password");
         confirmPassword.setErrorMessage("Please enter a valid password");
+        confirmPassword.getStyle().set("margin-bottom", "20px");
 
         registerButton.addClickListener(e -> handleRegistration());
         registerButton.setWidthFull();
-        registerButton.setAutofocus(true);
+        registerButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        registerButton.getStyle()
+            .set("background", "#8B7355")
+            .set("font-weight", "600")
+            .set("padding", "12px")
+            .set("margin-bottom", "16px");
 
-        getContent().add(title, subtitle, form, loginLink);
+        loginLink.getStyle()
+            .set("text-align", "center")
+            .set("display", "block")
+            .set("color", "#8B7355")
+            .set("text-decoration", "none")
+            .set("margin-top", "8px");
+
+        card.add(logo, title, subtitle, username, email, password, confirmPassword, registerButton, loginLink);
+        getContent().add(card);
     }
 
     private void handleRegistration() {
@@ -126,11 +173,11 @@ public class RegisterView extends Composite<VerticalLayout>{
         try {
             userService.register(dto.getUsername(), dto.getEmail(), dto.getPassword());
             Notification.show(
-                    "Registration successful! Please log in.",
-                    5000,
+                    "Registration successful! Welcome to Readit!",
+                    3000,
                     Notification.Position.MIDDLE
             );
-            getUI().ifPresent(ui -> ui.navigate("login"));
+            getUI().ifPresent(ui -> ui.navigate("recommendations"));
         } catch (IllegalArgumentException ex) {
             Notification.show(ex.getMessage(), 5000, Notification.Position.MIDDLE);
         } catch (Exception ex) {
