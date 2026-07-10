@@ -67,8 +67,10 @@ public class FeedView extends VerticalLayout {
                 .set("color", "var(--lumo-secondary-text-color)")
                 .set("font-size", "var(--lumo-font-size-s)");
 
-        H3 title = new H3(post.title());
-        title.getStyle().set("margin", "0.25em 0");
+        Button title = new Button(post.title(), e ->
+                getUI().ifPresent(ui -> ui.navigate("post/" + post.id() + "/comments")));
+
+            title.getStyle().set("margin", "0.25em 0");
 
         Paragraph body = new Paragraph(post.content() == null ? "" : post.content());
 

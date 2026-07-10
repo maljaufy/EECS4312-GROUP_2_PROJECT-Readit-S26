@@ -5,7 +5,6 @@ import com.redditclone.comments.dto.CommentDto;
 import com.redditclone.comments.service.CommentService;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
-import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -25,6 +24,12 @@ import com.vaadin.flow.router.Route;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * NOTE: identity is read from the Vaadin session ("userId" attribute, set at
+ * login) rather than userService.getCurrentUser() / SecurityContextHolder.
+ * This is a workaround while the session-vs-JWT security config is unresolved -
+ * see the "userId" attribute set in LoginView.
+ */
 @Route("post/:postId/comments")
 @PageTitle("Comments | Reddit Clone")
 public class PostCommentsView extends VerticalLayout implements BeforeEnterObserver {
@@ -50,6 +55,16 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
         setPadding(true);
         setSpacing(true);
         setMaxWidth("800px");
+    }
+
+    /**
+     * Reads the logged-in user's ID from the Vaadin session, or null if nobody's logged in.
+     * Session attribute is set once, at login, in LoginView.
+     */
+    private Long getCurrentUserId() {
+        return (Long) getUI()
+                .map(ui -> ui.getSession().getAttribute("userId"))
+                .orElse(null);
     }
 
     @Override
@@ -107,10 +122,9 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
         body.setMinHeight("100px");
 
         Button submit = new Button("Post comment", e -> {
-            User author;
-            try {
-                author = userService.getCurrentUser();
-            } catch (IllegalStateException notLoggedIn) {
+            Long currentUserId = getCurrentUserId();
+
+            if (currentUserId == null) {
                 Notification error = Notification.show("Please log in first.");
                 error.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 getUI().ifPresent(ui -> ui.navigate("login"));
@@ -123,7 +137,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
             }
             try {
                 CommentDto dto = new CommentDto(post.getId(), null, body.getValue());
-                commentService.createComment(dto.getPostId(), author.getId(), dto.getBody());
+                commentService.createComment(dto.getPostId(), currentUserId, dto.getBody());
                 body.clear();
                 loadTopLevelComments();
                 Notification ok = Notification.show("Comment posted.");

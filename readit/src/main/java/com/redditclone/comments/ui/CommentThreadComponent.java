@@ -3,7 +3,6 @@ package com.redditclone.comments.ui;
 import com.redditclone.comments.domain.Comment;
 import com.redditclone.comments.dto.CommentDto;
 import com.redditclone.comments.service.CommentService;
-import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -22,6 +21,11 @@ import java.util.List;
  * A comment with no replies just renders as a leaf - so this same component
  * handles both flat (non-nested) and deeply nested threads without any
  * special-casing.
+ *
+ * NOTE: identity is read from the Vaadin session ("userId" attribute, set at
+ * login) rather than userService.getCurrentUser() / SecurityContextHolder.
+ * This is a workaround while the session-vs-JWT security config is unresolved -
+ * see the "userId" attribute set in LoginView.
  */
 public class CommentThreadComponent extends VerticalLayout {
 
@@ -58,9 +62,6 @@ public class CommentThreadComponent extends VerticalLayout {
         setSpacing(false);
         setWidthFull();
 
-        // margin-left actually shifts this whole reply block rightward relative to its parent;
-        // padding-left alone (the old approach) only affected inner content, not the visible
-        // position of the block itself, so nesting didn't read as clearly offset.
         int indent = Math.min(depth * INDENT_PER_LEVEL_PX, MAX_INDENT_PX);
         getStyle().set("margin-left", indent + "px");
         getStyle().set("padding-left", depth > 0 ? "12px" : "0px");
@@ -79,6 +80,16 @@ public class CommentThreadComponent extends VerticalLayout {
         add(repliesContainer);
 
         loadReplies();
+    }
+
+    /**
+     * Reads the logged-in user's ID from the Vaadin session, or null if nobody's logged in.
+     * Session attribute is set once, at login, in LoginView.
+     */
+    private Long getCurrentUserId() {
+        return (Long) getUI()
+                .map(ui -> ui.getSession().getAttribute("userId"))
+                .orElse(null);
     }
 
     private HorizontalLayout buildHeader() {
@@ -112,14 +123,9 @@ public class CommentThreadComponent extends VerticalLayout {
         reply.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         actions.add(reply);
 
-        User current = null;
-        try {
-            current = userService.getCurrentUser();
-        } catch (IllegalStateException notLoggedIn) {
-            // no one logged in — just skip showing the Delete button
-        }
+        Long currentUserId = getCurrentUserId();
 
-        if (current != null && current.getId().equals(comment.getAuthor().getId())) {
+        if (currentUserId != null && currentUserId.equals(comment.getAuthor().getId())) {
             Button delete = new Button("Delete", e -> deleteThisComment());
             delete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
             actions.add(delete);
@@ -179,14 +185,14 @@ public class CommentThreadComponent extends VerticalLayout {
         replyText.setMinHeight("80px");
 
         Button submit = new Button("Submit reply", e -> {
-            User current;
-            try {
-                current = userService.getCurrentUser();
-            } catch (IllegalStateException notLoggedIn) {
+            Long currentUserId = getCurrentUserId();
+
+            if (currentUserId == null) {
                 Notification error = Notification.show("Please log in first.");
                 error.addThemeVariants(NotificationVariant.LUMO_ERROR);
                 return;
             }
+
             if (replyText.getValue() == null || replyText.getValue().isBlank()) {
                 Notification error = Notification.show("Reply can't be empty.");
                 error.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -194,7 +200,7 @@ public class CommentThreadComponent extends VerticalLayout {
             }
             try {
                 CommentDto dto = new CommentDto(comment.getPost().getId(), comment.getId(), replyText.getValue());
-                commentService.createComment(dto.getPostId(), current.getId(), dto.getBody());
+                commentService.createComment(dto.getPostId(), currentUserId, dto.getBody());
                 closeReplyFormInternal();
                 loadReplies();
                 Notification ok = Notification.show("Reply posted.");
@@ -214,14 +220,12 @@ public class CommentThreadComponent extends VerticalLayout {
     }
 
     private void deleteThisComment() {
-        User current;
-        try {
-            current = userService.getCurrentUser();
-        } catch (IllegalStateException notLoggedIn) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
             return;
         }
         try {
-            commentService.deleteComment(comment.getId(), current.getId());
+            commentService.deleteComment(comment.getId(), currentUserId);
             Notification ok = Notification.show("Comment deleted.");
             ok.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
             if (onThreadChanged != null) {
