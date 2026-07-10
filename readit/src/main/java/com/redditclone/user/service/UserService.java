@@ -123,13 +123,11 @@ public class UserService {
      * @param userId the user ID
      * @param delta  the karma change (positive or negative)
      */
-    /**
-     * Updates a user's karma by recalculating from all posts and comments.
-     */
     @Transactional
     public void updateKarma(Long userId, int delta) {
-        // Delta is ignored in this approach; we recalculate from all votes
-        recalculateKarma(userId);
+        User user = findById(userId);
+        user.addKarma(delta);
+        userRepository.save(user);
         log.debug("Updated karma for user {}", userId);
     }
 

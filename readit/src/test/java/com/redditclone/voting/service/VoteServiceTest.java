@@ -1,13 +1,18 @@
 package com.redditclone.voting.service;
 
+import com.redditclone.comments.domain.Comment;
+import com.redditclone.comments.repository.CommentRepository;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.repository.PostRepository;
+import com.redditclone.shared.event.EventPublisher;
+import com.redditclone.shared.push.UIBroadcaster;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.redditclone.voting.domain.Vote;
 import com.redditclone.voting.domain.VoteTargetType;
 import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.event.VoteCastEvent;
 import com.redditclone.voting.repository.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,13 +38,23 @@ class VoteServiceTest {
     private PostRepository postRepository;
 
     @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
     private UserService userService;
+
+    @Mock
+    private EventPublisher eventPublisher;
+
+    @Mock
+    private UIBroadcaster uiBroadcaster;
 
     private VoteService voteService;
 
     @BeforeEach
     void setUp() {
-        voteService = new VoteService(voteRepository, postRepository, userService);
+        voteService = new VoteService(voteRepository, postRepository, commentRepository,
+                userService, eventPublisher, uiBroadcaster);
     }
 
     @Test
@@ -151,6 +166,41 @@ class VoteServiceTest {
         verifyNoInteractions(voteRepository, userService);
     }
 
+    @Test
+    @DisplayName("Should vote on a comment, update its score, and broadcast after the change")
+    void upvoteComment_UpdatesCommentKarmaAndBroadcasts() {
+        Comment comment = givenCommentWithAuthor(20L, 2L);
+        givenVoter(1L);
+        when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.COMMENT, 20L))
+                .thenReturn(Optional.empty());
+        when(voteRepository.calculateScore(VoteTargetType.COMMENT, 20L)).thenReturn(1);
+
+        VoteResult result = voteService.upvoteComment(1L, 20L);
+
+        assertEquals(VoteTargetType.COMMENT, result.targetType());
+        assertEquals(1, comment.getVoteScore());
+        verify(userService).updateKarma(2L, 1);
+        ArgumentCaptor<VoteCastEvent> eventCaptor = ArgumentCaptor.forClass(VoteCastEvent.class);
+        verify(eventPublisher).publish(eventCaptor.capture());
+        assertEquals(VoteTargetType.COMMENT, eventCaptor.getValue().getTargetType());
+        assertEquals(20L, eventCaptor.getValue().getTargetId());
+        verify(uiBroadcaster).broadcastVoteUpdate("COMMENT", 20L, 1);
+    }
+
+    @Test
+    @DisplayName("Should reject votes on a user's own comment")
+    void voteOnComment_RejectsSelfVote() {
+        givenCommentWithAuthor(20L, 1L);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> voteService.downvoteComment(1L, 20L)
+        );
+
+        assertEquals("Users cannot vote on their own comments", exception.getMessage());
+        verifyNoInteractions(voteRepository, userService, eventPublisher, uiBroadcaster);
+    }
+
     private void givenPostWithAuthor(Long postId, Long authorId) {
         Post post = new Post();
         post.setId(postId);
@@ -166,5 +216,18 @@ class VoteServiceTest {
         User user = new User();
         user.setId(id);
         return user;
+    }
+
+    private Post postWithId(Long id) {
+        Post post = new Post();
+        post.setId(id);
+        return post;
+    }
+
+    private Comment givenCommentWithAuthor(Long commentId, Long authorId) {
+        Comment comment = new Comment(postWithId(10L), userWithId(authorId), "A comment");
+        comment.setId(commentId);
+        when(commentRepository.findById(commentId)).thenReturn(Optional.of(comment));
+        return comment;
     }
 }

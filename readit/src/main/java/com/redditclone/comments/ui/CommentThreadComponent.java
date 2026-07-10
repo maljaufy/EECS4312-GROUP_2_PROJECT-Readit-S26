@@ -200,7 +200,7 @@ public class CommentThreadComponent extends VerticalLayout {
             }
             try {
                 CommentDto dto = new CommentDto(comment.getPost().getId(), comment.getId(), replyText.getValue());
-                commentService.createComment(dto.getPostId(), currentUserId, dto.getBody());
+                commentService.createComment(dto, currentUserId);
                 closeReplyFormInternal();
                 loadReplies();
                 Notification ok = Notification.show("Reply posted.");

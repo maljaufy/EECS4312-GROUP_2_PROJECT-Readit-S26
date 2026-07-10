@@ -3,10 +3,7 @@ package com.redditclone.comments.domain;
 import com.redditclone.shared.domain.BaseEntity;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.user.domain.User;
-import com.redditclone.voting.domain.Vote;
 import jakarta.persistence.*;
-
-import java.util.List;
 
 @Entity
 @Table(name = "comments")
@@ -26,6 +23,9 @@ public class Comment extends BaseEntity {
 
     @Column(nullable = false, length = 5000)
     private String body;
+
+    @Column(name = "vote_score", nullable = false)
+    private int voteScore = 0;
 
     protected Comment() {
     }
@@ -78,5 +78,21 @@ public class Comment extends BaseEntity {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public Comment getParentComment() {
+        return parentComment;
+    }
+
+    public void setParentComment(Comment parentComment) {
+        this.parentComment = parentComment;
+    }
+
+    public int getVoteScore() {
+        return voteScore;
+    }
+
+    public void setVoteScore(int voteScore) {
+        this.voteScore = voteScore;
     }
 }

@@ -1,6 +1,7 @@
 package com.redditclone.posts.service;
 
 import com.redditclone.posts.domain.Post;
+import com.redditclone.posts.dto.PostDto;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.repository.PostRepository;
 import com.redditclone.subreddit.domain.Subreddit;
@@ -32,6 +33,15 @@ public class PostService {
         Subreddit subreddit = subredditService.getById(subredditId);
         Post post = new Post(cleanTitle, content, author, subreddit);
         return postRepository.save(post);
+    }
+
+    /** Compatibility entry point for the existing Vaadin view and service tests. */
+    @Transactional
+    public Post createPost(PostDto dto, User author) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Post must not be null.");
+        }
+        return createPost(dto.title(), dto.content(), dto.subredditId(), author);
     }
 
     @Transactional(readOnly = true)
