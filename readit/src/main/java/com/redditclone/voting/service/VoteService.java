@@ -2,12 +2,16 @@ package com.redditclone.voting.service;
 
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.repository.PostRepository;
+import com.redditclone.shared.event.EventPublisher;
+import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.redditclone.voting.domain.Vote;
 import com.redditclone.voting.domain.VoteTargetType;
 import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.event.VoteCastEvent;
 import com.redditclone.voting.repository.VoteRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +19,8 @@ import java.util.Objects;
 
 @Service
 public class VoteService {
+    @Autowired
+    private EventPublisher eventPublisher;
 
     private final VoteRepository voteRepository;
     private final PostRepository postRepository;
@@ -111,5 +117,40 @@ public class VoteService {
 
         userService.findById(voterId);
         return post;
+    }
+
+    @Transactional
+    public void castVote(Long userId, Long postId, int delta) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
+
+        VoteValue voteValue = delta > 0 ? VoteValue.UPVOTE : VoteValue.DOWNVOTE;
+        Vote existingVote = voteRepository.findByVoterIdAndTargetTypeAndTargetId(
+                userId,
+                VoteTargetType.POST,
+                postId
+        ).orElse(null);
+
+        Vote vote;
+        if (existingVote == null) {
+            vote = new Vote(userId, VoteTargetType.POST, postId, voteValue);
+        } else {
+            existingVote.setValue(voteValue);
+            vote = existingVote;
+        }
+
+        Vote saved = voteRepository.save(vote);
+
+        int newScore = voteRepository.calculateScore(VoteTargetType.POST, postId);
+
+        User voter = userService.findById(userId);
+
+        eventPublisher.publish(new VoteCastEvent(
+                postId,
+                userId,
+                voter.getUsername(),
+                delta,
+                newScore
+        ));
     }
 }

@@ -2,17 +2,30 @@ package com.redditclone.posts.ui;
 
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.subreddit.domain.Subreddit;
+import com.redditclone.subreddit.service.SubredditService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -25,64 +38,819 @@ public class FeedView extends VerticalLayout {
             DateTimeFormatter.ofPattern("MMM d, yyyy 'at' HH:mm");
 
     private final PostService postService;
+    private final SubredditService subredditService;
     private final VerticalLayout postList = new VerticalLayout();
 
-    public FeedView(PostService postService) {
+    public FeedView(PostService postService, SubredditService subredditService) {
         this.postService = postService;
+        this.subredditService = subredditService;
 
-        setPadding(true);
-        setSpacing(true);
-        setMaxWidth("800px");
+        setSizeFull();
+        setPadding(false);
+        setSpacing(false);
+        getStyle()
+            .set("background", "#DAE0E6")
+            .set("margin", "0");
 
-        H1 header = new H1("Readit");
+        // Top header bar
+        HorizontalLayout topHeader = createTopHeader();
+        
+        // Three-column layout
+        HorizontalLayout threeColumnLayout = new HorizontalLayout();
+        threeColumnLayout.setWidthFull();
+        threeColumnLayout.setHeightFull();
+        threeColumnLayout.setSpacing(false);
+        threeColumnLayout.setPadding(false);
+        threeColumnLayout.getStyle().set("overflow", "hidden");
 
-        Button createPost = new Button("Create Post",
-                e -> getUI().ifPresent(ui -> ui.navigate("create-post")));
-        Button createSubreddit = new Button("Create Subreddit",
-                e -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
-        HorizontalLayout toolbar = new HorizontalLayout(createPost, createSubreddit);
+        // Left sidebar
+        VerticalLayout leftSidebar = createLeftSidebar();
+        leftSidebar.setWidth("270px");
+        leftSidebar.setHeightFull();
+        leftSidebar.getStyle()
+            .set("position", "sticky")
+            .set("top", "0")
+            .set("overflow-y", "auto")
+            .set("padding", "16px 8px");
+
+        // Center feed
+        VerticalLayout centerFeed = createCenterFeed();
+        centerFeed.setWidth("640px");
+        centerFeed.setHeightFull();
+        centerFeed.getStyle()
+            .set("flex-grow", "1")
+            .set("padding", "16px 0")
+            .set("overflow-y", "auto");
+
+        // Right sidebar
+        VerticalLayout rightSidebar = createRightSidebar();
+        rightSidebar.setWidth("312px");
+        rightSidebar.setHeightFull();
+        rightSidebar.getStyle()
+            .set("position", "sticky")
+            .set("top", "0")
+            .set("overflow-y", "auto")
+            .set("padding", "16px 8px");
+
+        threeColumnLayout.add(leftSidebar, centerFeed, rightSidebar);
+        threeColumnLayout.expand(centerFeed);
+
+        VerticalLayout mainLayout = new VerticalLayout(topHeader, threeColumnLayout);
+        mainLayout.setSizeFull();
+        mainLayout.setPadding(false);
+        mainLayout.setSpacing(false);
+
+        add(mainLayout);
+        refresh();
+    }
+
+    private HorizontalLayout createTopHeader() {
+        HorizontalLayout header = new HorizontalLayout();
+        header.setWidthFull();
+        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        header.setAlignItems(Alignment.CENTER);
+        header.getStyle()
+            .set("background", "#FFFFFF")
+            .set("border-bottom", "1px solid #ccc")
+            .set("padding", "8px 20px")
+            .set("position", "sticky")
+            .set("top", "0")
+            .set("z-index", "1000");
+
+        // Logo
+        H2 logo = new H2("📱 Readit");
+        logo.getStyle()
+            .set("margin", "0")
+            .set("color", "#FF4500")
+            .set("font-size", "24px")
+            .set("cursor", "pointer");
+        logo.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+
+        // Search bar
+        TextField searchField = new TextField();
+        searchField.setWidth("400px");
+        searchField.setPlaceholder("Search Readit");
+        searchField.setClearButtonVisible(true);
+        searchField.getStyle()
+            .set("background", "#F6F7F8")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "20px");
+        
+        searchField.addValueChangeListener(e -> {
+            String query = e.getValue();
+            if (query != null && !query.trim().isEmpty()) {
+                performSearch(query.trim());
+            } else {
+                refresh();
+            }
+        });
+
+        // User actions
+        HorizontalLayout userActions = new HorizontalLayout();
+        userActions.setSpacing(true);
+        userActions.setAlignItems(Alignment.CENTER);
+
+        Button popularBtn = new Button("Popular");
+        popularBtn.getStyle()
+            .set("background", "transparent")
+            .set("border", "none")
+            .set("color", "#0079D3")
+            .set("font-weight", "600")
+            .set("cursor", "pointer");
+
+        Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
+        logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        logoutButton.getStyle()
+            .set("background", "#FF4500")
+            .set("color", "white")
+            .set("font-weight", "600")
+            .set("padding", "8px 16px")
+            .set("border-radius", "20px");
+        logoutButton.addClickListener(e -> handleLogout());
+
+        userActions.add(popularBtn, logoutButton);
+
+        header.add(logo, searchField, userActions);
+        return header;
+    }
+
+    private VerticalLayout createLeftSidebar() {
+        VerticalLayout sidebar = new VerticalLayout();
+        sidebar.setSpacing(true);
+        sidebar.setPadding(false);
+
+        // Navigation links
+        VerticalLayout navLinks = new VerticalLayout();
+        navLinks.setSpacing(false);
+        navLinks.setPadding(false);
+
+        navLinks.add(createNavLink("🏠 Home", "feed"));
+        navLinks.add(createNavLink("🔥 Popular", "feed"));
+        navLinks.add(createNavLink("📰 News", "feed"));
+        navLinks.add(createNavLink("🧭 Explore", "feed"));
+
+        // Start a community button
+        Button startCommunity = new Button("Start a community");
+        startCommunity.getStyle()
+            .set("width", "100%")
+            .set("background", "#0079D3")
+            .set("color", "white")
+            .set("font-weight", "600")
+            .set("padding", "12px")
+            .set("border-radius", "20px")
+            .set("margin-top", "16px");
+        startCommunity.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
+
+        // Games on Reddit section
+        VerticalLayout gamesSection = createSidebarSection("Games on Reddit", List.of("r/gaming", "r/Games", "r/GameDeals"));
+
+        // Custom Feeds section
+        VerticalLayout customFeedsSection = createSidebarSection("Custom Feeds", List.of("Home", "Popular"));
+
+        // Communities section - dynamic
+        VerticalLayout communitiesSection = createCommunitiesSection();
+
+        sidebar.add(navLinks, startCommunity, gamesSection, customFeedsSection, communitiesSection);
+        return sidebar;
+    }
+
+    private Div createNavLink(String text, String route) {
+        Div link = new Div(text);
+        link.getStyle()
+            .set("padding", "10px 16px")
+            .set("border-radius", "8px")
+            .set("cursor", "pointer")
+            .set("font-weight", "500")
+            .set("color", "#1c1c1c")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("gap", "12px");
+        link.addClassName("nav-link");
+        link.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate(route)));
+        
+        addHoverEffect(link);
+        
+        return link;
+    }
+
+    private VerticalLayout createSidebarSection(String title, List<String> items) {
+        VerticalLayout section = new VerticalLayout();
+        section.setSpacing(false);
+        section.setPadding(false);
+        section.getStyle()
+            .set("margin-top", "24px")
+            .set("background", "transparent");
+
+        H4 header = new H4(title);
+        header.getStyle()
+            .set("margin", "0 0 8px 0")
+            .set("font-size", "12px")
+            .set("font-weight", "700")
+            .set("color", "#7c7c7c")
+            .set("text-transform", "uppercase")
+            .set("padding", "0 16px");
+
+        VerticalLayout itemsList = new VerticalLayout();
+        itemsList.setSpacing(false);
+        itemsList.setPadding(false);
+
+        for (String item : items) {
+            Div itemDiv = new Div(item);
+            itemDiv.getStyle()
+                .set("padding", "8px 16px")
+                .set("border-radius", "8px")
+                .set("cursor", "pointer")
+                .set("font-weight", "500")
+                .set("color", "#1c1c1c")
+                .set("font-size", "14px");
+            itemDiv.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+            
+            addHoverEffect(itemDiv);
+            
+            itemsList.add(itemDiv);
+        }
+
+        section.add(header, itemsList);
+        return section;
+    }
+
+    private VerticalLayout createCenterFeed() {
+        VerticalLayout feed = new VerticalLayout();
+        feed.setSpacing(true);
+        feed.setPadding(false);
+
+        // Create post input bar
+        Div createPostBar = new Div();
+        createPostBar.getStyle()
+            .set("background", "white")
+            .set("border-radius", "4px")
+            .set("padding", "12px")
+            .set("border", "1px solid #ccc")
+            .set("margin-bottom", "16px")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("gap", "12px");
+
+        Span userAvatar = new Span("👤");
+        userAvatar.getStyle()
+            .set("font-size", "32px")
+            .set("width", "38px")
+            .set("height", "38px")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("justify-content", "center");
+
+        Span inputPlaceholder = new Span("Create Post");
+        inputPlaceholder.getStyle()
+            .set("background", "#F6F7F8")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "4px")
+            .set("padding", "10px 16px")
+            .set("flex-grow", "1")
+            .set("cursor", "pointer")
+            .set("color", "#7c7c7c");
+        inputPlaceholder.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("create-post")));
+
+        Button imageBtn = new Button("🖼️");
+        imageBtn.getStyle()
+            .set("background", "#F6F7F8")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "4px")
+            .set("padding", "8px 12px")
+            .set("cursor", "pointer");
+
+        createPostBar.add(userAvatar, inputPlaceholder, imageBtn);
+
+        // Sort/filter bar
+        HorizontalLayout sortBar = new HorizontalLayout();
+        sortBar.setWidthFull();
+        sortBar.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        sortBar.getStyle().set("margin-bottom", "16px");
+
+        H3 feedTitle = new H3("Home");
+        feedTitle.getStyle()
+            .set("margin", "0")
+            .set("font-size", "18px")
+            .set("font-weight", "600")
+            .set("color", "#1c1c1c");
+
+        HorizontalLayout sortOptions = new HorizontalLayout();
+        sortOptions.setSpacing(true);
+
+        Button hotBtn = new Button("🔥 Hot");
+        hotBtn.getStyle()
+            .set("background", "#0079D3")
+            .set("color", "white")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700");
+
+        Button newBtn = new Button("✨ New");
+        newBtn.getStyle()
+            .set("background", "transparent")
+            .set("color", "#0079D3")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700")
+            .set("cursor", "pointer");
+
+        Button topBtn = new Button("🏆 Top");
+        topBtn.getStyle()
+            .set("background", "transparent")
+            .set("color", "#0079D3")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700")
+            .set("cursor", "pointer");
+
+        sortOptions.add(hotBtn, newBtn, topBtn);
+        sortBar.add(feedTitle, sortOptions);
 
         postList.setPadding(false);
         postList.setWidthFull();
+        postList.setSpacing(true);
 
-        add(header, toolbar, new H3("Latest posts"), postList);
-        refresh();
+        feed.add(createPostBar, sortBar, postList);
+        return feed;
+    }
+
+    private VerticalLayout createRightSidebar() {
+        VerticalLayout sidebar = new VerticalLayout();
+        sidebar.setSpacing(true);
+        sidebar.setPadding(false);
+
+        // Premium promotion
+        Div premiumCard = new Div();
+        premiumCard.getStyle()
+            .set("background", "white")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "4px")
+            .set("padding", "12px")
+            .set("margin-bottom", "16px");
+
+        H4 premiumTitle = new H4("Readit Premium");
+        premiumTitle.getStyle()
+            .set("margin", "0 0 8px 0")
+            .set("font-size", "14px")
+            .set("font-weight", "600")
+            .set("color", "#1c1c1c");
+
+        Paragraph premiumText = new Paragraph("The best Readit experience with monthly coins");
+        premiumText.getStyle()
+            .set("margin", "0 0 12px 0")
+            .set("font-size", "12px")
+            .set("color", "#7c7c7c");
+
+        Button tryNow = new Button("Try Now");
+        tryNow.getStyle()
+            .set("background", "#FF4500")
+            .set("color", "white")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "8px 16px")
+            .set("font-weight", "600")
+            .set("width", "100%");
+
+        premiumCard.add(premiumTitle, premiumText, tryNow);
+
+        // Recent Posts section
+        Div recentPostsCard = new Div();
+        recentPostsCard.getStyle()
+            .set("background", "white")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "4px")
+            .set("padding", "12px");
+
+        H4 recentTitle = new H4("Recent Posts");
+        recentTitle.getStyle()
+            .set("margin", "0 0 12px 0")
+            .set("font-size", "14px")
+            .set("font-weight", "600")
+            .set("color", "#1c1c1c")
+            .set("border-bottom", "1px solid #eee")
+            .set("padding-bottom", "8px");
+
+        VerticalLayout recentPostsList = new VerticalLayout();
+        recentPostsList.setSpacing(false);
+        recentPostsList.setPadding(false);
+
+        // Sample recent posts
+        recentPostsList.add(createRecentPostItem("r/technology", "AI breakthrough in 2024"));
+        recentPostsList.add(createRecentPostItem("r/gaming", "New game announcement"));
+        recentPostsList.add(createRecentPostItem("r/science", "Climate research update"));
+        recentPostsList.add(createRecentPostItem("r/music", "Album review: Best of 2024"));
+        recentPostsList.add(createRecentPostItem("r/movies", "Oscar predictions"));
+
+        recentPostsCard.add(recentTitle, recentPostsList);
+
+        sidebar.add(premiumCard, recentPostsCard);
+        return sidebar;
+    }
+
+    private Div createRecentPostItem(String subreddit, String title) {
+        Div item = new Div();
+        item.getStyle()
+            .set("padding", "8px 0")
+            .set("border-bottom", "1px solid #eee")
+            .set("cursor", "pointer");
+
+        Span subredditSpan = new Span(subreddit);
+        subredditSpan.getStyle()
+            .set("font-size", "12px")
+            .set("font-weight", "600")
+            .set("color", "#0079D3")
+            .set("display", "block")
+            .set("margin-bottom", "4px");
+
+        Span titleSpan = new Span(title);
+        titleSpan.getStyle()
+            .set("font-size", "13px")
+            .set("color", "#1c1c1c")
+            .set("display", "block")
+            .set("line-height", "1.4");
+
+        item.add(subredditSpan, titleSpan);
+        item.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+        
+        addHoverEffect(item);
+        
+        return item;
+    }
+
+    private void addHoverEffect(Div element) {
+        element.getElement().addEventListener("mouseover", e -> {
+            element.getStyle().set("background", "#F6F7F8");
+        });
+        element.getElement().addEventListener("mouseout", e -> {
+            element.getStyle().set("background", "transparent");
+        });
     }
 
     private void refresh() {
         postList.removeAll();
         List<PostSummaryDto> feed = postService.getFeed();
         if (feed.isEmpty()) {
-            postList.add(new Paragraph("No posts yet. Be the first to create one."));
+            Div emptyState = new Div();
+            emptyState.getStyle()
+                .set("text-align", "center")
+                .set("padding", "40px 20px")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px");
+
+            H3 emptyIcon = new H3("📭");
+            emptyIcon.getStyle()
+                .set("font-size", "48px")
+                .set("margin", "0 0 16px 0");
+
+            H3 emptyTitle = new H3("No posts yet");
+            emptyTitle.getStyle()
+                .set("margin", "0 0 8px 0")
+                .set("color", "#1c1c1c")
+                .set("font-size", "18px")
+                .set("font-weight", "600");
+
+            Paragraph emptyText = new Paragraph("Be the first to create a post and start the conversation!");
+            emptyText.getStyle()
+                .set("margin", "0")
+                .set("color", "#7c7c7c")
+                .set("font-size", "14px");
+
+            emptyState.add(emptyIcon, emptyTitle, emptyText);
+            postList.add(emptyState);
             return;
         }
         feed.forEach(post -> postList.add(card(post)));
     }
 
     private Component card(PostSummaryDto post) {
+        // Main card container
+        Div card = new Div();
+        card.getStyle()
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("margin-bottom", "0")
+                .set("cursor", "pointer")
+                .set("display", "flex")
+                .set("flex-direction", "column");
+
+        // Vote section on the left
+        Div voteSection = new Div();
+        voteSection.getStyle()
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("align-items", "center")
+                .set("padding", "8px")
+                .set("background", "#F8F9FA")
+                .set("border-right", "1px solid #eee")
+                .set("min-width", "40px");
+
+        Button upvoteBtn = new Button("▲");
+        upvoteBtn.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", "#7c7c7c")
+                .set("font-size", "16px")
+                .set("padding", "4px")
+                .set("cursor", "pointer");
+
+        Span voteCount = new Span("0");
+        voteCount.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "12px")
+                .set("color", "#1c1c1c")
+                .set("margin", "4px 0");
+
+        Button downvoteBtn = new Button("▼");
+        downvoteBtn.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", "#7c7c7c")
+                .set("font-size", "16px")
+                .set("padding", "4px")
+                .set("cursor", "pointer");
+
+        voteSection.add(upvoteBtn, voteCount, downvoteBtn);
+
+        // Content section
+        Div contentSection = new Div();
+        contentSection.getStyle()
+                .set("flex-grow", "1")
+                .set("padding", "12px")
+                .set("display", "flex")
+                .set("flex-direction", "column");
+
+        // Post metadata
         Span meta = new Span("r/" + post.subredditName()
-                + "  \u2022  posted by " + post.authorUsername()
+                + "  \u2022  posted by u/" + post.authorUsername()
                 + "  \u2022  " + TIME.format(post.createdAt()));
         meta.getStyle()
-                .set("color", "var(--lumo-secondary-text-color)")
-                .set("font-size", "var(--lumo-font-size-s)");
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "500")
+                .set("margin-bottom", "8px");
 
+        // Post title
         H3 title = new H3(post.title());
-        title.getStyle().set("margin", "0.25em 0");
+        title.getStyle()
+                .set("margin", "0 0 8px 0")
+                .set("font-size", "18px")
+                .set("font-weight", "600")
+                .set("color", "#1c1c1c")
+                .set("line-height", "1.4");
 
+        // Post body
         Paragraph body = new Paragraph(post.content() == null ? "" : post.content());
+        body.getStyle()
+                .set("margin", "0 0 12px 0")
+                .set("color", "#1c1c1c")
+                .set("font-size", "14px")
+                .set("line-height", "1.5");
 
-        VerticalLayout content = new VerticalLayout(meta, title, body);
-        content.setPadding(false);
-        content.setSpacing(false);
+        // Action buttons (comments, share, save)
+        HorizontalLayout actionButtons = new HorizontalLayout();
+        actionButtons.setSpacing(true);
+        actionButtons.getStyle()
+                .set("margin-top", "8px")
+                .set("padding-top", "8px")
+                .set("border-top", "1px solid #eee");
 
-        Div card = new Div(content);
-        card.getStyle()
-                .set("border", "1px solid var(--lumo-contrast-20pct)")
+        Button commentsBtn = new Button("💬 Comments");
+        commentsBtn.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("padding", "4px 8px")
+                .set("cursor", "pointer");
+
+        Button shareBtn = new Button("🔗 Share");
+        shareBtn.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("padding", "4px 8px")
+                .set("cursor", "pointer");
+
+        Button saveBtn = new Button("🔖 Save");
+        saveBtn.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("padding", "4px 8px")
+                .set("cursor", "pointer");
+
+        actionButtons.add(commentsBtn, shareBtn, saveBtn);
+
+        contentSection.add(meta, title, body, actionButtons);
+
+        // Combine vote and content sections
+        HorizontalLayout cardLayout = new HorizontalLayout(voteSection, contentSection);
+        cardLayout.setSpacing(false);
+        cardLayout.setWidthFull();
+        cardLayout.getStyle().set("align-items", "flex-start");
+
+        card.add(cardLayout);
+        card.addClassName("post-card");
+
+        // Hover effect
+        card.getElement().addEventListener("mouseover", e -> {
+            card.getStyle().set("border-color", "#0079D3");
+        });
+
+        card.getElement().addEventListener("mouseout", e -> {
+            card.getStyle().set("border-color", "#ccc");
+        });
+
+        return card;
+    }
+
+    private void handleLogout() {
+        SecurityContextHolder.clearContext();
+        getUI().ifPresent(ui -> {
+            ui.getSession().setAttribute("jwt", null);
+            ui.getSession().setAttribute("username", null);
+            ui.navigate("");
+        });
+    }
+
+    private VerticalLayout createCommunitiesSection() {
+        VerticalLayout section = new VerticalLayout();
+        section.setSpacing(false);
+        section.setPadding(false);
+        section.getStyle()
+            .set("margin-top", "24px")
+            .set("background", "transparent");
+
+        H4 header = new H4("Communities");
+        header.getStyle()
+            .set("margin", "0 0 8px 0")
+            .set("font-size", "12px")
+            .set("font-weight", "700")
+            .set("color", "#7c7c7c")
+            .set("text-transform", "uppercase")
+            .set("padding", "0 16px");
+
+        VerticalLayout itemsList = new VerticalLayout();
+        itemsList.setSpacing(false);
+        itemsList.setPadding(false);
+
+        List<Subreddit> subreddits = subredditService.findAll();
+        for (Subreddit subreddit : subreddits) {
+            Div itemDiv = new Div("r/" + subreddit.getName());
+            itemDiv.getStyle()
+                .set("padding", "8px 16px")
                 .set("border-radius", "8px")
-                .set("padding", "var(--lumo-space-m)")
-                .set("width", "100%")
-                .set("box-sizing", "border-box");
+                .set("cursor", "pointer")
+                .set("font-weight", "500")
+                .set("color", "#1c1c1c")
+                .set("font-size", "14px");
+            itemDiv.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+            
+            addHoverEffect(itemDiv);
+            
+            itemsList.add(itemDiv);
+        }
+
+        section.add(header, itemsList);
+        return section;
+    }
+
+    private void performSearch(String query) {
+        postList.removeAll();
+        
+        // Search posts
+        List<PostSummaryDto> postResults = postService.searchPosts(query);
+        
+        // Search subreddits
+        List<Subreddit> subredditResults = subredditService.searchSubreddits(query);
+        
+        if (postResults.isEmpty() && subredditResults.isEmpty()) {
+            Div emptyState = new Div();
+            emptyState.getStyle()
+                .set("text-align", "center")
+                .set("padding", "40px 20px")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px");
+
+            H3 emptyIcon = new H3("🔍");
+            emptyIcon.getStyle()
+                .set("font-size", "48px")
+                .set("margin", "0 0 16px 0");
+
+            H3 emptyTitle = new H3("No results found");
+            emptyTitle.getStyle()
+                .set("margin", "0 0 8px 0")
+                .set("color", "#1c1c1c")
+                .set("font-size", "18px")
+                .set("font-weight", "600");
+
+            Paragraph emptyText = new Paragraph("Try searching for something else");
+            emptyText.getStyle()
+                .set("margin", "0")
+                .set("color", "#7c7c7c")
+                .set("font-size", "14px");
+
+            emptyState.add(emptyIcon, emptyTitle, emptyText);
+            postList.add(emptyState);
+        } else {
+            // Display subreddit results first
+            if (!subredditResults.isEmpty()) {
+                H4 subredditHeader = new H4("Communities");
+                subredditHeader.getStyle()
+                    .set("margin", "0 0 12px 0")
+                    .set("font-size", "14px")
+                    .set("font-weight", "700")
+                    .set("color", "#1c1c1c");
+                postList.add(subredditHeader);
+                
+                for (Subreddit subreddit : subredditResults) {
+                    Div subredditCard = createSubredditCard(subreddit);
+                    postList.add(subredditCard);
+                }
+            }
+            
+            // Display post results
+            if (!postResults.isEmpty()) {
+                H4 postsHeader = new H4("Posts");
+                postsHeader.getStyle()
+                    .set("margin", "24px 0 12px 0")
+                    .set("font-size", "14px")
+                    .set("font-weight", "700")
+                    .set("color", "#1c1c1c");
+                postList.add(postsHeader);
+                
+                postResults.forEach(post -> postList.add(card(post)));
+            }
+        }
+    }
+    
+    private Div createSubredditCard(Subreddit subreddit) {
+        Div card = new Div();
+        card.getStyle()
+            .set("background", "white")
+            .set("border", "1px solid #ccc")
+            .set("border-radius", "4px")
+            .set("padding", "16px")
+            .set("margin-bottom", "8px")
+            .set("cursor", "pointer")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("gap", "12px");
+
+        Span icon = new Span("📁");
+        icon.getStyle()
+            .set("font-size", "32px")
+            .set("width", "40px")
+            .set("height", "40px")
+            .set("display", "flex")
+            .set("align-items", "center")
+            .set("justify-content", "center");
+
+        VerticalLayout content = new VerticalLayout();
+        content.setSpacing(false);
+        content.setPadding(false);
+
+        Span name = new Span("r/" + subreddit.getName());
+        name.getStyle()
+            .set("font-weight", "600")
+            .set("font-size", "16px")
+            .set("color", "#0079D3");
+
+        Span description = new Span(subreddit.getDescription() != null ? subreddit.getDescription() : "No description");
+        description.getStyle()
+            .set("font-size", "14px")
+            .set("color", "#7c7c7c")
+            .set("margin-top", "4px");
+
+        content.add(name, description);
+        card.add(icon, content);
+        
+        card.addClickListener(e -> {
+            // Navigate to subreddit-specific feed (for now, just refresh feed)
+            // TODO: Create subreddit-specific view
+            getUI().ifPresent(ui -> ui.navigate("feed"));
+        });
+        
+        // Hover effect
+        card.getElement().addEventListener("mouseover", e -> {
+            card.getStyle().set("border-color", "#0079D3");
+        });
+
+        card.getElement().addEventListener("mouseout", e -> {
+            card.getStyle().set("border-color", "#ccc");
+        });
+        
         return card;
     }
 }

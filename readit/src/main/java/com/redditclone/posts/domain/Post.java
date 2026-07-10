@@ -34,6 +34,9 @@ public class Post extends BaseEntity {
     @JoinColumn(name = "subreddit_id", nullable = false)
     private Subreddit subreddit;
 
+    @Column(name = "vote_score")
+    private int voteScore = 0;
+
     public Post(String title, String content, User author, Subreddit subreddit) {
         this.title = title;
         this.content = content;
