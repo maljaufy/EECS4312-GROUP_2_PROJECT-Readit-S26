@@ -137,7 +137,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
             }
             try {
                 CommentDto dto = new CommentDto(post.getId(), null, body.getValue());
-                commentService.createComment(dto.getPostId(), currentUserId, dto.getBody());
+                commentService.createComment(dto, currentUserId);
                 body.clear();
                 loadTopLevelComments();
                 Notification ok = Notification.show("Comment posted.");

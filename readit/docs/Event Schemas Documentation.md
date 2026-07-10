@@ -84,7 +84,7 @@
 
 
 
-**Triggered when a user votes on a post.**
+**Triggered when a user votes on a post or comment.**
 
 
 
@@ -104,11 +104,15 @@
 
 &#x20; **"occurredAt": "ISO-8601 datetime",**
 
-&#x20; **"postId": 456,**
+&#x20; **"targetType": "POST|COMMENT",**
+
+&#x20; **"targetId": 456,**
 
 &#x20; **"userId": 123,**
 
-&#x20; **"delta": 1,  // +1 for upvote, -1 for downvote**
+&#x20; **"currentVote": "UPVOTE|DOWNVOTE|null",**
+
+&#x20; **"delta": 1,  // score change: +1, -1, +2, or -2**
 
 &#x20; **"newScore": 42**
 

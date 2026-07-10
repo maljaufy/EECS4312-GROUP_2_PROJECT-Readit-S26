@@ -39,7 +39,7 @@ public class Vote {
     private Long targetId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "vote_value", nullable = false, length = 20)
     private VoteValue value;
 
     protected Vote() {

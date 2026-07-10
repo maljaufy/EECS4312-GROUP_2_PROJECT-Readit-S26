@@ -33,30 +33,54 @@ public class CommentService {
 
     @Transactional
     public Comment createComment(Long postId, Long authorId, String body) {
-        Objects.requireNonNull(postId, "postId must not be null");
+        return createComment(new CommentDto(postId, null, body), authorId);
+    }
+
+    @Transactional
+    public Comment createComment(CommentDto dto, Long authorId) {
+        Objects.requireNonNull(dto, "comment must not be null");
+        Objects.requireNonNull(dto.getPostId(), "postId must not be null");
         Objects.requireNonNull(authorId, "authorId must not be null");
+        String normalizedBody = normalizeBody(dto.getBody());
 
-        String normalizedBody = normalizeBody(body);
         User author = userService.findById(authorId);
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
+        Post post = postRepository.findById(dto.getPostId())
+                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + dto.getPostId()));
+        Comment comment = new Comment(post, author, normalizedBody);
 
-        return commentRepository.save(new Comment(post, author, normalizedBody));
+        if (dto.getParentCommentId() != null) {
+            Comment parent = commentRepository.findById(dto.getParentCommentId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Parent comment not found with ID: " + dto.getParentCommentId()));
+            if (!post.getId().equals(parent.getPostId())) {
+                throw new IllegalArgumentException("Parent comment belongs to a different post");
+            }
+            comment.setParentComment(parent);
+        }
+
+        Comment saved = commentRepository.save(comment);
+        publishCommentCreated(saved, post, author);
+        return saved;
     }
 
     @Transactional
     public Comment addComment(CommentDto dto, User author, Post post) {
-        String normalizedBody = normalizeBody(dto.body());
-        Comment comment = new Comment(post, author, normalizedBody);
+        Objects.requireNonNull(dto, "comment must not be null");
+        Objects.requireNonNull(author, "author must not be null");
+        Objects.requireNonNull(post, "post must not be null");
+        Comment comment = new Comment(post, author, normalizeBody(dto.getBody()));
+        if (dto.getParentCommentId() != null) {
+            Comment parent = commentRepository.findById(dto.getParentCommentId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Parent comment not found with ID: " + dto.getParentCommentId()));
+            if (!post.getId().equals(parent.getPostId())) {
+                throw new IllegalArgumentException("Parent comment belongs to a different post");
+            }
+            comment.setParentComment(parent);
+        }
         Comment saved = commentRepository.save(comment);
 
-        eventPublisher.publish(new CommentCreatedEvent(
-                saved.getId(),
-                saved.getPost().getId(),
-                author.getUsername(),
-                saved.getBody(),
-                saved.getParentComment() != null ? saved.getParentComment().getId() : null
-        ));
+        publishCommentCreated(saved, post, author);
 
         return saved;
     }
@@ -96,5 +120,13 @@ public class CommentService {
             throw new IllegalArgumentException("Comment body must not be blank");
         }
         return body.trim();
+    }
+
+    private void publishCommentCreated(Comment comment, Post post, User author) {
+        if (eventPublisher != null) {
+            eventPublisher.publish(new CommentCreatedEvent(
+                    comment.getId(), post.getId(), author.getUsername(), comment.getBody(),
+                    comment.getParentComment() == null ? null : comment.getParentComment().getId()));
+        }
     }
 }

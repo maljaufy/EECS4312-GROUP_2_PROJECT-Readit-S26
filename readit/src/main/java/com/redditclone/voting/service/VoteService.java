@@ -1,8 +1,11 @@
 package com.redditclone.voting.service;
 
+import com.redditclone.comments.domain.Comment;
+import com.redditclone.comments.repository.CommentRepository;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.repository.PostRepository;
 import com.redditclone.shared.event.EventPublisher;
+import com.redditclone.shared.push.UIBroadcaster;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.redditclone.voting.domain.Vote;
@@ -14,22 +17,35 @@ import com.redditclone.voting.repository.VoteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Objects;
 
 @Service
 public class VoteService {
-    @Autowired
-    private EventPublisher eventPublisher;
-
     private final VoteRepository voteRepository;
     private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
     private final UserService userService;
+    private final EventPublisher eventPublisher;
+    private final UIBroadcaster uiBroadcaster;
 
-    public VoteService(VoteRepository voteRepository, PostRepository postRepository, UserService userService) {
+    @Autowired
+    public VoteService(VoteRepository voteRepository, PostRepository postRepository,
+                       CommentRepository commentRepository, UserService userService,
+                       EventPublisher eventPublisher, UIBroadcaster uiBroadcaster) {
         this.voteRepository = voteRepository;
         this.postRepository = postRepository;
+        this.commentRepository = commentRepository;
         this.userService = userService;
+        this.eventPublisher = eventPublisher;
+        this.uiBroadcaster = uiBroadcaster;
+    }
+
+    /** Kept for existing post-voting unit tests and callers. */
+    public VoteService(VoteRepository voteRepository, PostRepository postRepository, UserService userService) {
+        this(voteRepository, postRepository, null, userService, null, null);
     }
 
     @Transactional
@@ -45,61 +61,112 @@ public class VoteService {
     @Transactional
     public VoteResult voteOnPost(Long voterId, Long postId, VoteValue value) {
         Post post = requirePostVoteInput(voterId, postId, value);
-        Long postAuthorId = post.getAuthor().getId();
-
-        Vote existingVote = voteRepository.findByVoterIdAndTargetTypeAndTargetId(
-                voterId,
-                VoteTargetType.POST,
-                postId
-        ).orElse(null);
-
-        if (existingVote == null) {
-            voteRepository.save(new Vote(voterId, VoteTargetType.POST, postId, value));
-            userService.updateKarma(postAuthorId, value.getKarmaDelta());
-            return result(postId, value, value.getKarmaDelta(), true);
-        }
-
-        if (existingVote.getValue() == value) {
-            return result(postId, value, 0, false);
-        }
-
-        int karmaDelta = value.getKarmaDelta() - existingVote.getValue().getKarmaDelta();
-        existingVote.setValue(value);
-        voteRepository.save(existingVote);
-        userService.updateKarma(postAuthorId, karmaDelta);
-        return result(postId, value, karmaDelta, true);
+        return vote(voterId, VoteTargetType.POST, postId, post.getAuthor().getId(), value,
+                score -> post.setVoteScore(score));
     }
 
     @Transactional
     public VoteResult removePostVote(Long voterId, Long postId) {
         Post post = requirePostVoteInput(voterId, postId, VoteValue.UPVOTE);
-        Long postAuthorId = post.getAuthor().getId();
-
-        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(voterId, VoteTargetType.POST, postId)
-                .map(existingVote -> {
-                    int karmaDelta = -existingVote.getValue().getKarmaDelta();
-                    voteRepository.delete(existingVote);
-                    userService.updateKarma(postAuthorId, karmaDelta);
-                    return result(postId, null, karmaDelta, true);
-                })
-                .orElseGet(() -> result(postId, null, 0, false));
+        return removeVote(voterId, VoteTargetType.POST, postId, post.getAuthor().getId(),
+                score -> post.setVoteScore(score));
     }
 
     @Transactional(readOnly = true)
     public int getPostScore(Long postId) {
-        Objects.requireNonNull(postId, "postId must not be null");
-        return voteRepository.calculateScore(VoteTargetType.POST, postId);
+        return getScore(VoteTargetType.POST, postId);
     }
 
-    private VoteResult result(Long postId, VoteValue currentVote, int karmaDelta, boolean changed) {
+    @Transactional
+    public VoteResult upvoteComment(Long voterId, Long commentId) {
+        return voteOnComment(voterId, commentId, VoteValue.UPVOTE);
+    }
+
+    @Transactional
+    public VoteResult downvoteComment(Long voterId, Long commentId) {
+        return voteOnComment(voterId, commentId, VoteValue.DOWNVOTE);
+    }
+
+    @Transactional
+    public VoteResult voteOnComment(Long voterId, Long commentId, VoteValue value) {
+        Comment comment = requireCommentVoteInput(voterId, commentId, value);
+        return vote(voterId, VoteTargetType.COMMENT, commentId, comment.getAuthor().getId(), value,
+                score -> comment.setVoteScore(score));
+    }
+
+    @Transactional
+    public VoteResult removeCommentVote(Long voterId, Long commentId) {
+        Comment comment = requireCommentVoteInput(voterId, commentId, VoteValue.UPVOTE);
+        return removeVote(voterId, VoteTargetType.COMMENT, commentId, comment.getAuthor().getId(),
+                score -> comment.setVoteScore(score));
+    }
+
+    @Transactional(readOnly = true)
+    public int getCommentScore(Long commentId) {
+        return getScore(VoteTargetType.COMMENT, commentId);
+    }
+
+    private VoteResult vote(Long voterId, VoteTargetType targetType, Long targetId, Long authorId,
+                            VoteValue value, ScoreUpdater scoreUpdater) {
+        User voter = userService.findById(voterId);
+        Vote existingVote = voteRepository.findByVoterIdAndTargetTypeAndTargetId(voterId, targetType, targetId)
+                .orElse(null);
+
+        if (existingVote != null && existingVote.getValue() == value) {
+            return result(targetType, targetId, value, 0, false);
+        }
+
+        int karmaDelta = value.getKarmaDelta();
+        if (existingVote == null) {
+            voteRepository.save(new Vote(voterId, targetType, targetId, value));
+        } else {
+            karmaDelta -= existingVote.getValue().getKarmaDelta();
+            existingVote.setValue(value);
+            voteRepository.save(existingVote);
+        }
+
+        int score = getScore(targetType, targetId);
+        scoreUpdater.update(score);
+        userService.updateKarma(authorId, karmaDelta);
+        VoteResult result = new VoteResult(targetType, targetId, value, score, karmaDelta, true);
+        publishVoteChange(voter, result);
+        return result;
+    }
+
+    private VoteResult removeVote(Long voterId, VoteTargetType targetType, Long targetId, Long authorId,
+                                  ScoreUpdater scoreUpdater) {
+        User voter = userService.findById(voterId);
+        Vote existingVote = voteRepository.findByVoterIdAndTargetTypeAndTargetId(voterId, targetType, targetId)
+                .orElse(null);
+        if (existingVote == null) {
+            return result(targetType, targetId, null, 0, false);
+        }
+
+        int karmaDelta = -existingVote.getValue().getKarmaDelta();
+        voteRepository.delete(existingVote);
+        int score = getScore(targetType, targetId);
+        scoreUpdater.update(score);
+        userService.updateKarma(authorId, karmaDelta);
+        VoteResult result = new VoteResult(targetType, targetId, null, score, karmaDelta, true);
+        publishVoteChange(voter, result);
+        return result;
+    }
+
+    private VoteResult result(VoteTargetType targetType, Long targetId, VoteValue currentVote,
+                              int karmaDelta, boolean changed) {
         return new VoteResult(
-                VoteTargetType.POST,
-                postId,
+                targetType,
+                targetId,
                 currentVote,
-                voteRepository.calculateScore(VoteTargetType.POST, postId),
+                getScore(targetType, targetId),
                 karmaDelta,
                 changed
         );
+    }
+
+    private int getScore(VoteTargetType targetType, Long targetId) {
+        Objects.requireNonNull(targetId, "targetId must not be null");
+        return voteRepository.calculateScore(targetType, targetId);
     }
 
     private Post requirePostVoteInput(Long voterId, Long postId, VoteValue value) {
@@ -119,38 +186,55 @@ public class VoteService {
         return post;
     }
 
-    @Transactional
-    public void castVote(Long userId, Long postId, int delta) {
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
-
-        VoteValue voteValue = delta > 0 ? VoteValue.UPVOTE : VoteValue.DOWNVOTE;
-        Vote existingVote = voteRepository.findByVoterIdAndTargetTypeAndTargetId(
-                userId,
-                VoteTargetType.POST,
-                postId
-        ).orElse(null);
-
-        Vote vote;
-        if (existingVote == null) {
-            vote = new Vote(userId, VoteTargetType.POST, postId, voteValue);
-        } else {
-            existingVote.setValue(voteValue);
-            vote = existingVote;
+    private Comment requireCommentVoteInput(Long voterId, Long commentId, VoteValue value) {
+        Objects.requireNonNull(voterId, "voterId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+        if (commentRepository == null) {
+            throw new IllegalStateException("Comment voting is not configured");
         }
 
-        Vote saved = voteRepository.save(vote);
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("Comment not found with ID: " + commentId));
+        if (voterId.equals(comment.getAuthor().getId())) {
+            throw new IllegalArgumentException("Users cannot vote on their own comments");
+        }
+        return comment;
+    }
 
-        int newScore = voteRepository.calculateScore(VoteTargetType.POST, postId);
+    @Transactional
+    public void castVote(Long userId, Long postId, int delta) {
+        if (delta == 0) {
+            throw new IllegalArgumentException("Vote delta must not be zero");
+        }
+        voteOnPost(userId, postId, delta > 0 ? VoteValue.UPVOTE : VoteValue.DOWNVOTE);
+    }
 
-        User voter = userService.findById(userId);
+    private void publishVoteChange(User voter, VoteResult result) {
+        if (eventPublisher != null) {
+            eventPublisher.publish(new VoteCastEvent(
+                    result.targetType(), result.targetId(), voter.getId(), voter.getUsername(),
+                    result.currentVote(), result.karmaDelta(), result.score()));
+        }
+        if (uiBroadcaster == null) {
+            return;
+        }
+        Runnable broadcast = () -> uiBroadcaster.broadcastVoteUpdate(
+                result.targetType().name(), result.targetId(), result.score());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    broadcast.run();
+                }
+            });
+        } else {
+            broadcast.run();
+        }
+    }
 
-        eventPublisher.publish(new VoteCastEvent(
-                postId,
-                userId,
-                voter.getUsername(),
-                delta,
-                newScore
-        ));
+    @FunctionalInterface
+    private interface ScoreUpdater {
+        void update(int score);
     }
 }

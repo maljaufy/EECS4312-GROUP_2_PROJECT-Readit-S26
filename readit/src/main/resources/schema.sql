@@ -141,7 +141,7 @@ CREATE TABLE votes (
     comment_target_id BIGINT GENERATED ALWAYS AS (
         CASE WHEN target_type = 'COMMENT' THEN target_id ELSE NULL END
     ) STORED,
-    value VARCHAR(20) NOT NULL,
+    vote_value VARCHAR(20) NOT NULL,
     CONSTRAINT chk_votes_target_type CHECK (target_type IN ('POST', 'COMMENT')),
     CONSTRAINT chk_votes_value CHECK (value IN ('UPVOTE', 'DOWNVOTE')),
     CONSTRAINT fk_votes_voter FOREIGN KEY (voter_id) REFERENCES users(id) ON DELETE CASCADE,
