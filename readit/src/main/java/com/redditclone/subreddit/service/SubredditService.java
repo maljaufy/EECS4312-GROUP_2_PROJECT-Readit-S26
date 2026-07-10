@@ -38,4 +38,16 @@ public class SubredditService {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Subreddit not found."));
     }
+
+    @Transactional(readOnly = true)
+    public List<Subreddit> searchSubreddits(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return findAll();
+        }
+        String searchQuery = query.trim().toLowerCase();
+        return repository.findAll().stream()
+                .filter(s -> s.getName().toLowerCase().contains(searchQuery) ||
+                           (s.getDescription() != null && s.getDescription().toLowerCase().contains(searchQuery)))
+                .toList();
+    }
 }

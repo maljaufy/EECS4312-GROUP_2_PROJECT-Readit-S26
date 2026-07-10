@@ -1,6 +1,7 @@
 package com.redditclone.posts.service;
 
 import com.redditclone.posts.domain.Post;
+import com.redditclone.posts.dto.PostDto;
 import com.redditclone.posts.repository.PostRepository;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
@@ -41,7 +42,8 @@ class PostServiceTest {
         when(subredditService.getById(subredditId)).thenReturn(subreddit);
         when(postRepository.save(any(Post.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Post post = postService.createPost("Hello world", "My first post", subredditId, author);
+        PostDto dto = new PostDto("Hello world", "My first post", subredditId);
+        Post post = postService.createPost(dto, author);
 
         assertEquals("Hello world", post.getTitle());
         verify(postRepository).save(any(Post.class));
@@ -51,8 +53,9 @@ class PostServiceTest {
     @DisplayName("rejects an empty title")
     void rejectsEmptyTitle() {
         User author = new User();
+        PostDto dto = new PostDto("   ", "body", 1L);
         assertThrows(IllegalArgumentException.class,
-                () -> postService.createPost("   ", "body", 1L, author));
+                () -> postService.createPost(dto, author));
         verify(postRepository, never()).save(any());
     }
 }

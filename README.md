@@ -12,7 +12,7 @@ from your IDE and connects to these services.
 | Redis      | redis:7-alpine                   | 6379      | Cache, CQRS feed views, session store                          |
 | Kafka      | confluentinc/cp-kafka:7.9.0      | 9092      | Event streaming                                                |
 | Zookeeper  | confluentinc/cp-zookeeper:7.9.0  | (internal)| Coordination service for Kafka                                 |
-| Kafka UI   | ghcr.io/kafbat/kafka-ui:latest   | 8080      | Optional dashboard (only with the `tools` profile)             |
+| Kafka UI   | ghcr.io/kafbat/kafka-ui:latest   | 8081      | Optional dashboard (only with the `tools` profile)             |
 
 ## Prerequisites
 

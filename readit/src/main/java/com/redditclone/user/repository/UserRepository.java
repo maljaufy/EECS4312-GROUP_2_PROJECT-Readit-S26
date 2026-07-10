@@ -27,11 +27,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u.karma FROM User u WHERE u.id = :userId")
     int findKarmaByUserId(@Param("userId") Long userId);
 
-    // TODO: Implement Post entity first
-    // @Query("SELECT COUNT(p) FROM Post p WHERE p.author.id = :userId")
-    // long countPostsByUserId(@Param("userId") Long userId);
+    @Query("SELECT COUNT(p) FROM Post p WHERE p.author.id = :userId")
+    long countPostsByUserId(@Param("userId") Long userId);
 
-    // TODO: Implement Comment entity first
-    // @Query("SELECT COUNT(c) FROM Comment c WHERE c.author.id = :userId")
-    //long countCommentsByUserId(@Param("userId") Long userId);
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.author.id = :userId")
+    long countCommentsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(SUM(p.voteScore), 0) FROM Post p WHERE p.author.id = :userId")
+    int getPostVoteScoreByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT COALESCE(SUM(c.voteScore), 0) FROM Comment c WHERE c.author.id = :userId")
+    int getCommentVoteScoreByUserId(@Param("userId") Long userId);
 }

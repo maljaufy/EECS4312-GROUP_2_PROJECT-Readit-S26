@@ -6,11 +6,12 @@ import com.vaadin.flow.theme.Theme;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
-
+import org.springframework.scheduling.annotation.EnableScheduling;
 @Push
 @SpringBootApplication
 @EnableAsync
 @Theme(value = "reddit-clone")
+@EnableScheduling
 public class RedditCloneApplication implements AppShellConfigurator {
 
     public static void main(String[] args) {

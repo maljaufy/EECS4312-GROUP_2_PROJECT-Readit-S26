@@ -1,11 +1,15 @@
 package com.redditclone.comments.service;
 
 import com.redditclone.comments.domain.Comment;
+import com.redditclone.comments.dto.CommentDto;
+import com.redditclone.comments.event.CommentCreatedEvent;
 import com.redditclone.comments.repository.CommentRepository;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.repository.PostRepository;
+import com.redditclone.shared.event.EventPublisher;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +19,8 @@ import java.util.Objects;
 @Service
 public class CommentService {
 
+    @Autowired
+    private EventPublisher eventPublisher;
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserService userService;
@@ -36,6 +42,23 @@ public class CommentService {
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
 
         return commentRepository.save(new Comment(post, author, normalizedBody));
+    }
+
+    @Transactional
+    public Comment addComment(CommentDto dto, User author, Post post) {
+        String normalizedBody = normalizeBody(dto.body());
+        Comment comment = new Comment(post, author, normalizedBody);
+        Comment saved = commentRepository.save(comment);
+
+        eventPublisher.publish(new CommentCreatedEvent(
+                saved.getId(),
+                saved.getPost().getId(),
+                author.getUsername(),
+                saved.getBody(),
+                saved.getParentComment() != null ? saved.getParentComment().getId() : null
+        ));
+
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -6,10 +6,14 @@ import com.redditclone.user.ui.component.KarmaDisplay;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
+import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -21,6 +25,8 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 
@@ -51,6 +57,25 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
     private Button saveButton;
     private boolean isEditing = false;
 
+    /**
+     * Listens for karma updates and refreshes the display.
+     * This is triggered by VoteEventListener broadcasting.
+     */
+    @EventListener
+    public void onKarmaUpdated(String username) {
+        if (viewedUsername != null && viewedUsername.equals(username)) {
+            getUI().ifPresent(ui -> ui.access(() -> {
+                loadProfile();
+                updateKarmaDisplay();
+            }));
+        }
+    }
+
+    private void updateKarmaDisplay() {
+        // Update the karma display component
+        karmaDisplay.updateKarma(currentProfile.getKarma());
+    }
+
     @Override
     public void setParameter(BeforeEvent event, String username) {
         if (username == null || username.isEmpty()) {
@@ -75,6 +100,41 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         getContent().removeAll();
         getContent().setSizeFull();
         getContent().setAlignItems(Alignment.CENTER);
+        getContent().setJustifyContentMode(JustifyContentMode.CENTER);
+        getContent().getStyle()
+            .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
+            .set("padding", "40px 20px");
+
+        // Main container
+        VerticalLayout mainContainer = new VerticalLayout();
+        mainContainer.setMaxWidth("800px");
+        mainContainer.setWidthFull();
+        mainContainer.setPadding(false);
+        mainContainer.setSpacing(true);
+
+        // Header with logout button
+        HorizontalLayout headerLayout = new HorizontalLayout();
+        headerLayout.setWidthFull();
+        headerLayout.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        headerLayout.setAlignItems(Alignment.CENTER);
+        headerLayout.getStyle().set("margin-bottom", "20px");
+
+        H2 logo = new H2("📱 Readit");
+        logo.getStyle()
+            .set("margin", "0")
+            .set("color", "#F5DEB3");
+
+        Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
+        logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        logoutButton.getStyle()
+            .set("background", "#D2B48C")
+            .set("color", "#333")
+            .set("font-weight", "600")
+            .set("padding", "8px 16px");
+        logoutButton.addClickListener(e -> handleLogout());
+
+        headerLayout.add(logo, logoutButton);
+        mainContainer.add(headerLayout);
 
         // Header with avatar and username
         HorizontalLayout header = new HorizontalLayout();
@@ -90,13 +150,15 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
         VerticalLayout userInfo = new VerticalLayout();
         usernameHeader = new H1(currentProfile.getUsername());
-        usernameHeader.getStyle().set("margin", "0");
+        usernameHeader.getStyle()
+            .set("margin", "0")
+            .set("color", "#F5DEB3");
 
         karmaDisplay = new KarmaDisplay(currentProfile.getKarma());
         userInfo.add(usernameHeader, karmaDisplay);
 
         header.add(avatar, userInfo);
-        getContent().add(header);
+        mainContainer.add(header);
 
         // Stats
         HorizontalLayout stats = new HorizontalLayout();
@@ -109,7 +171,7 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         commentCount = new Paragraph("Comments: " + currentProfile.getCommentCount());
 
         stats.add(joinedDate, postCount, commentCount);
-        getContent().add(stats);
+        mainContainer.add(stats);
 
         // Bio
         bioDisplay = new TextArea();
@@ -124,7 +186,7 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         bioEdit.setWidthFull();
         bioEdit.setVisible(false);
 
-        getContent().add(bioDisplay, bioEdit);
+        mainContainer.add(bioDisplay, bioEdit);
 
         // Edit buttons (only if viewing own profile)
         try {
@@ -134,15 +196,18 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
                 saveButton = new Button("Save", e -> saveProfile());
                 saveButton.setVisible(false);
                 HorizontalLayout buttonLayout = new HorizontalLayout(editToggleButton, saveButton);
-                getContent().add(buttonLayout);
+                mainContainer.add(buttonLayout);
             }
         } catch (IllegalStateException e) {
             // Not logged in - no edit buttons
         }
 
         // Navigation
-        RouterLink backToFeed = new RouterLink("← Back to Feed", LoginView.class);
-        getContent().add(backToFeed);
+        RouterLink backToFeed = new RouterLink("← Back to Feed", com.redditclone.posts.ui.FeedView.class);
+        backToFeed.getStyle().set("color", "#F5DEB3");
+        mainContainer.add(backToFeed);
+
+        getContent().add(mainContainer);
     }
 
     private void toggleEdit() {
@@ -167,5 +232,14 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         } catch (Exception e) {
             Notification.show("Error updating profile: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
         }
+    }
+
+    private void handleLogout() {
+        SecurityContextHolder.clearContext();
+        getUI().ifPresent(ui -> {
+            ui.getSession().setAttribute("jwt", null);
+            ui.getSession().setAttribute("username", null);
+            ui.navigate("");
+        });
     }
 }
