@@ -156,3 +156,9 @@ CREATE TABLE users_roles (
     PRIMARY KEY (user_id, role),
     CONSTRAINT fk_users_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+ALTER TABLE comments
+    ADD COLUMN parent_comment_id BIGINT,
+    ADD CONSTRAINT fk_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE CASCADE;
+
+CREATE INDEX idx_comments_parent ON comments(parent_comment_id);

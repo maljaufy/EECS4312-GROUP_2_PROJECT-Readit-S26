@@ -205,12 +205,11 @@ public class UserService {
      * @throws IllegalStateException if no user is authenticated
      */
     public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new IllegalStateException("No authenticated user found");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new IllegalStateException("No user is currently logged in.");
         }
-        String username = authentication.getName();
-        return findByUsername(username);
+        return findByUsername(auth.getName());
     }
 
     /**

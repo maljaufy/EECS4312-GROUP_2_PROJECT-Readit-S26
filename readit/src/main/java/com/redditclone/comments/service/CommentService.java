@@ -44,6 +44,30 @@ public class CommentService {
         return commentRepository.findByPost_IdOrderByCreatedAtAsc(postId);
     }
 
+    public List<Comment> findTopLevelByPost(Post post) {
+        return commentRepository.findByPostAndParentCommentIsNullOrderByCreatedAtAsc(post);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId, Long userId)
+    {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Comment not found"));
+
+        if (!comment.getAuthorId().equals(userId)) {
+            throw new SecurityException(
+                    "You cannot delete another user's comment"
+            );
+        }
+
+        commentRepository.delete(comment);
+    }
+
+    public List<Comment> findReplies(Comment parentComment) {
+        return commentRepository.findByParentCommentOrderByCreatedAtAsc(parentComment);
+    }
+
     private String normalizeBody(String body) {
         if (body == null || body.trim().isEmpty()) {
             throw new IllegalArgumentException("Comment body must not be blank");

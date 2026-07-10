@@ -46,4 +46,9 @@ public class PostService {
                         p.getCreatedAt()))
                 .toList();
     }
+    @Transactional
+    public Post getPostById(Long postId) {
+        return postRepository.findByIdWithAuthorAndSubreddit(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
+    }
 }

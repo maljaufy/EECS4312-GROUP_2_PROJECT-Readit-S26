@@ -3,12 +3,10 @@ package com.redditclone.comments.domain;
 import com.redditclone.shared.domain.BaseEntity;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.user.domain.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.redditclone.voting.domain.Vote;
+import jakarta.persistence.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "comments")
@@ -21,6 +19,10 @@ public class Comment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id") // nullable — top-level comments have no parent
+    private Comment parentComment;
 
     @Column(nullable = false, length = 5000)
     private String body;
