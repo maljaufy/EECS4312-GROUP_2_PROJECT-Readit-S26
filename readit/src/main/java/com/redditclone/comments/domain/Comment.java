@@ -3,19 +3,13 @@ package com.redditclone.comments.domain;
 import com.redditclone.shared.domain.BaseEntity;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.user.domain.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.Setter;
+import com.redditclone.voting.domain.Vote;
+import jakarta.persistence.*;
+
+import java.util.List;
 
 @Entity
 @Table(name = "comments")
-@Getter
-@Setter
 public class Comment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -26,15 +20,12 @@ public class Comment extends BaseEntity {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id") // nullable — top-level comments have no parent
+    private Comment parentComment;
+
     @Column(nullable = false, length = 5000)
     private String body;
-
-    @Column(name = "vote_score")
-    private int voteScore = 0;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_comment_id")
-    private Comment parentComment;
 
     protected Comment() {
     }
@@ -63,5 +54,29 @@ public class Comment extends BaseEntity {
         User authorReference = new User();
         authorReference.setId(authorId);
         this.author = authorReference;
+    }
+
+    public Post getPost() {
+        return post;
+    }
+
+    public void setPost(Post post) {
+        this.post = post;
+    }
+
+    public User getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(User author) {
+        this.author = author;
+    }
+
+    public String getBody() {
+        return body;
+    }
+
+    public void setBody(String body) {
+        this.body = body;
     }
 }

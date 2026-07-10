@@ -1,6 +1,7 @@
 package com.redditclone.user.ui;
 
 import com.redditclone.shared.security.JwtUtil;
+import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.button.Button;
@@ -139,12 +140,13 @@ public class LoginView extends Composite<VerticalLayout>{
             );
 
             // Store token in Vaadin session
+            User loggedInUser = userService.findByUsername(user); // fetch the real entity once, right here
             getUI().ifPresent(ui -> {
                 ui.getSession().setAttribute("jwt", token);
                 ui.getSession().setAttribute("username", user);
+                ui.getSession().setAttribute("userId", loggedInUser.getId()); // <-- new
                 ui.navigate("feed");
             });
-
             Notification.show("Welcome back, " + user + "!", 3000, Notification.Position.MIDDLE);
 
         } catch (BadCredentialsException e) {
