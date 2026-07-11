@@ -7,7 +7,6 @@ DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS outbox_event CASCADE;
 DROP TABLE IF EXISTS subreddits CASCADE;
-DROP TABLE IF EXISTS user_roles CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -143,7 +142,7 @@ CREATE TABLE votes (
     ) STORED,
     vote_value VARCHAR(20) NOT NULL,
     CONSTRAINT chk_votes_target_type CHECK (target_type IN ('POST', 'COMMENT')),
-    CONSTRAINT chk_votes_value CHECK (value IN ('UPVOTE', 'DOWNVOTE')),
+    CONSTRAINT chk_votes_value CHECK (vote_value IN ('UPVOTE', 'DOWNVOTE')),
     CONSTRAINT fk_votes_voter FOREIGN KEY (voter_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_votes_post_target FOREIGN KEY (post_target_id) REFERENCES posts(id) ON DELETE CASCADE,
     CONSTRAINT fk_votes_comment_target FOREIGN KEY (comment_target_id) REFERENCES comments(id) ON DELETE CASCADE,
@@ -160,9 +159,5 @@ CREATE TABLE users_roles (
     PRIMARY KEY (user_id, role),
     CONSTRAINT fk_users_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
-ALTER TABLE comments
-    ADD COLUMN parent_comment_id BIGINT,
-    ADD CONSTRAINT fk_comments_parent FOREIGN KEY (parent_comment_id) REFERENCES comments(id) ON DELETE CASCADE;
 
 CREATE INDEX idx_comments_parent ON comments(parent_comment_id);
