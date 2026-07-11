@@ -10,7 +10,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
 @Entity
 @Table(
         name = "votes",
@@ -28,16 +31,20 @@ public class Vote {
     @Version
     private Long version;
 
+    @Setter
     @Column(name = "voter_id", nullable = false)
     private Long voterId;
 
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "target_type", nullable = false, length = 20)
     private VoteTargetType targetType;
 
+    @Setter
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "vote_value", nullable = false, length = 20)
     private VoteValue value;
@@ -52,43 +59,4 @@ public class Vote {
         this.value = value;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public Long getVoterId() {
-        return voterId;
-    }
-
-    public void setVoterId(Long voterId) {
-        this.voterId = voterId;
-    }
-
-    public VoteTargetType getTargetType() {
-        return targetType;
-    }
-
-    public void setTargetType(VoteTargetType targetType) {
-        this.targetType = targetType;
-    }
-
-    public Long getTargetId() {
-        return targetId;
-    }
-
-    public void setTargetId(Long targetId) {
-        this.targetId = targetId;
-    }
-
-    public VoteValue getValue() {
-        return value;
-    }
-
-    public void setValue(VoteValue value) {
-        this.value = value;
-    }
 }

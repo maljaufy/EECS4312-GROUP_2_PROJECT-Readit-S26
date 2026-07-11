@@ -82,4 +82,19 @@ public class PostService {
         return postRepository.findByIdWithAuthorAndSubreddit(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with id: " + postId));
     }
+
+    @Transactional(readOnly = true)
+    public List<PostSummaryDto> getPostsFromLast24Hours() {
+        java.time.LocalDateTime twentyFourHoursAgo = java.time.LocalDateTime.now().minusHours(24);
+        return postRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .filter(p -> p.getCreatedAt().isAfter(twentyFourHoursAgo))
+                .map(p -> new PostSummaryDto(
+                        p.getId(),
+                        p.getTitle(),
+                        p.getContent(),
+                        p.getAuthor().getUsername(),
+                        p.getSubreddit().getName(),
+                        p.getCreatedAt()))
+                .toList();
+    }
 }

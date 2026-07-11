@@ -12,23 +12,17 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
-import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
@@ -155,6 +149,42 @@ public class FeedView extends VerticalLayout {
             }
         });
 
+        // Sort buttons (Hot, New, Top)
+        HorizontalLayout sortButtons = new HorizontalLayout();
+        sortButtons.setSpacing(true);
+        sortButtons.setAlignItems(Alignment.CENTER);
+
+        Button hotBtn = new Button("🔥 Hot");
+        hotBtn.getStyle()
+            .set("background", "#0079D3")
+            .set("color", "white")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700");
+
+        Button newBtn = new Button("✨ New");
+        newBtn.getStyle()
+            .set("background", "transparent")
+            .set("color", "#0079D3")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700")
+            .set("cursor", "pointer");
+
+        Button topBtn = new Button("🏆 Top");
+        topBtn.getStyle()
+            .set("background", "transparent")
+            .set("color", "#0079D3")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700")
+            .set("cursor", "pointer");
+
+        sortButtons.add(hotBtn, newBtn, topBtn);
+
         // User actions
         HorizontalLayout userActions = new HorizontalLayout();
         userActions.setSpacing(true);
@@ -178,7 +208,7 @@ public class FeedView extends VerticalLayout {
             .set("border-radius", "20px");
         logoutButton.addClickListener(e -> handleLogout());
 
-        userActions.add(popularBtn, logoutButton);
+        userActions.add(sortButtons, popularBtn, logoutButton);
 
         header.add(logo, searchField, userActions);
         return header;
@@ -331,59 +361,19 @@ public class FeedView extends VerticalLayout {
 
         createPostBar.add(userAvatar, inputPlaceholder, imageBtn);
 
-        // Sort/filter bar
-        HorizontalLayout sortBar = new HorizontalLayout();
-        sortBar.setWidthFull();
-        sortBar.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        sortBar.getStyle().set("margin-bottom", "16px");
-
+        // Feed title
         H3 feedTitle = new H3("Home");
         feedTitle.getStyle()
-            .set("margin", "0")
+            .set("margin", "0 0 16px 0")
             .set("font-size", "18px")
             .set("font-weight", "600")
             .set("color", "#1c1c1c");
-
-        HorizontalLayout sortOptions = new HorizontalLayout();
-        sortOptions.setSpacing(true);
-
-        Button hotBtn = new Button("🔥 Hot");
-        hotBtn.getStyle()
-            .set("background", "#0079D3")
-            .set("color", "white")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700");
-
-        Button newBtn = new Button("✨ New");
-        newBtn.getStyle()
-            .set("background", "transparent")
-            .set("color", "#0079D3")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700")
-            .set("cursor", "pointer");
-
-        Button topBtn = new Button("🏆 Top");
-        topBtn.getStyle()
-            .set("background", "transparent")
-            .set("color", "#0079D3")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700")
-            .set("cursor", "pointer");
-
-        sortOptions.add(hotBtn, newBtn, topBtn);
-        sortBar.add(feedTitle, sortOptions);
 
         postList.setPadding(false);
         postList.setWidthFull();
         postList.setSpacing(true);
 
-        feed.add(createPostBar, sortBar, postList);
+        feed.add(createPostBar, feedTitle, postList);
         return feed;
     }
 

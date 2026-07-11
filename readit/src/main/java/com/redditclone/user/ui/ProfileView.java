@@ -17,7 +17,6 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
-import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.PageTitle;
@@ -25,7 +24,6 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.EventListener;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
@@ -61,7 +59,6 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
      * Listens for karma updates and refreshes the display.
      * This is triggered by VoteEventListener broadcasting.
      */
-    @EventListener
     public void onKarmaUpdated(String username) {
         if (viewedUsername != null && viewedUsername.equals(username)) {
             getUI().ifPresent(ui -> ui.access(() -> {
