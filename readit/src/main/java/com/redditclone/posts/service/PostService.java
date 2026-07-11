@@ -56,6 +56,27 @@ public class PostService {
                         p.getCreatedAt()))
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<PostSummaryDto> searchPosts(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return getFeed();
+        }
+        String searchQuery = query.trim().toLowerCase();
+        return postRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .filter(post -> post.getTitle().toLowerCase().contains(searchQuery)
+                        || (post.getContent() != null
+                        && post.getContent().toLowerCase().contains(searchQuery)))
+                .map(post -> new PostSummaryDto(
+                        post.getId(),
+                        post.getTitle(),
+                        post.getContent(),
+                        post.getAuthor().getUsername(),
+                        post.getSubreddit().getName(),
+                        post.getCreatedAt()))
+                .toList();
+    }
+
     @Transactional
     public Post getPostById(Long postId) {
         return postRepository.findByIdWithAuthorAndSubreddit(postId)
