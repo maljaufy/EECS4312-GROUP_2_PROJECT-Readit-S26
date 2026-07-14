@@ -2,7 +2,6 @@ package com.redditclone.user.ui;
 
 import com.redditclone.user.dto.UserProfileDto;
 import com.redditclone.user.service.UserService;
-import com.redditclone.user.ui.component.KarmaDisplay;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
@@ -10,6 +9,8 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
@@ -45,7 +46,7 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
     private Avatar avatar;
     private H1 usernameHeader;
-    private KarmaDisplay karmaDisplay;
+    private Span karmaValue;
     private Paragraph joinedDate;
     private Paragraph postCount;
     private Paragraph commentCount;
@@ -69,8 +70,16 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
     }
 
     private void updateKarmaDisplay() {
-        // Update the karma display component
-        karmaDisplay.updateKarma(currentProfile.getKarma());
+        int karma = currentProfile.getKarma();
+        karmaValue.setText(String.valueOf(karma));
+        karmaValue.getStyle().set("font-weight", karma == 0 ? "normal" : "bold");
+        if (karma > 0) {
+            karmaValue.getStyle().set("color", "var(--lumo-success-color)");
+        } else if (karma < 0) {
+            karmaValue.getStyle().set("color", "var(--lumo-error-color)");
+        } else {
+            karmaValue.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        }
     }
 
     @Override
@@ -151,8 +160,7 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
             .set("margin", "0")
             .set("color", "#F5DEB3");
 
-        karmaDisplay = new KarmaDisplay(currentProfile.getKarma());
-        userInfo.add(usernameHeader, karmaDisplay);
+        userInfo.add(usernameHeader, createKarmaDisplay());
 
         header.add(avatar, userInfo);
         mainContainer.add(header);
@@ -205,6 +213,21 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         mainContainer.add(backToFeed);
 
         getContent().add(mainContainer);
+    }
+
+    private HorizontalLayout createKarmaDisplay() {
+        HorizontalLayout display = new HorizontalLayout();
+        display.setSpacing(true);
+        display.setAlignItems(Alignment.CENTER);
+
+        Icon karmaIcon = VaadinIcon.STAR.create();
+        karmaIcon.getStyle().set("color", "var(--lumo-primary-color)");
+        karmaIcon.setSize("16px");
+
+        karmaValue = new Span();
+        updateKarmaDisplay();
+        display.add(karmaIcon, karmaValue);
+        return display;
     }
 
     private void toggleEdit() {

@@ -9,6 +9,7 @@ import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -33,17 +34,26 @@ public class CreatePostView extends VerticalLayout {
                           UserService userService) {
         setSizeFull();
         setAlignItems(Alignment.CENTER);
-        setJustifyContentMode(JustifyContentMode.CENTER);
+        setJustifyContentMode(JustifyContentMode.START);
+        addClassName("creation-view");
         getStyle()
-            .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
-            .set("padding", "40px 20px");
+            .set("background", "#f3f4f6")
+            .set("overflow-y", "auto")
+            .set("padding", "32px 20px");
 
         // Main container
         VerticalLayout mainContainer = new VerticalLayout();
-        mainContainer.setMaxWidth("700px");
+        mainContainer.setMaxWidth("760px");
         mainContainer.setWidthFull();
-        mainContainer.setPadding(false);
+        mainContainer.setPadding(true);
         mainContainer.setSpacing(true);
+        mainContainer.addClassName("creation-card");
+        mainContainer.getStyle()
+            .set("background", "#ffffff")
+            .set("border", "1px solid #d7dce2")
+            .set("border-radius", "14px")
+            .set("box-shadow", "0 10px 30px rgba(15, 23, 42, 0.08)")
+            .set("padding", "28px");
 
         // Header with logout button
         HorizontalLayout headerLayout = new HorizontalLayout();
@@ -55,13 +65,14 @@ public class CreatePostView extends VerticalLayout {
         H2 logo = new H2("📱 Readit");
         logo.getStyle()
             .set("margin", "0")
-            .set("color", "#F5DEB3");
+            .set("color", "#ff4500")
+            .set("cursor", "pointer");
+        logo.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
 
         Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
-        logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
+        logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logoutButton.getStyle()
-            .set("background", "#D2B48C")
-            .set("color", "#333")
+            .set("color", "#334155")
             .set("font-weight", "600")
             .set("padding", "8px 16px");
         logoutButton.addClickListener(e -> handleLogout());
@@ -69,7 +80,14 @@ public class CreatePostView extends VerticalLayout {
         headerLayout.add(logo, logoutButton);
 
         H2 pageTitle = new H2("Create a post");
-        pageTitle.getStyle().set("color", "#F5DEB3");
+        pageTitle.getStyle()
+            .set("color", "#111827")
+            .set("margin", "4px 0 0");
+
+        Paragraph pageDescription = new Paragraph("Share something with a community and start a conversation.");
+        pageDescription.getStyle()
+            .set("color", "#52606d")
+            .set("margin", "-8px 0 8px");
 
         TextField title = new TextField("Title");
         title.setRequiredIndicatorVisible(true);
@@ -92,7 +110,7 @@ public class CreatePostView extends VerticalLayout {
         Button submit = new Button("Submit post", event -> {
             User author;
             try {
-                author = userService.getCurrentUser();
+                author = resolveCurrentUser(userService);
             } catch (IllegalStateException notLoggedIn) {
                 Notification error = Notification.show("Please log in first.");
                 error.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -133,16 +151,46 @@ public class CreatePostView extends VerticalLayout {
             }
         });
         submit.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        submit.getStyle().set("background", "#8B7355");
+        submit.getStyle()
+            .set("background", "#ff4500")
+            .set("font-weight", "700");
 
         Button cancel = new Button("Cancel", e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+        cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-        mainContainer.add(headerLayout, pageTitle);
+        HorizontalLayout actions = new HorizontalLayout(cancel, submit);
+        actions.setWidthFull();
+        actions.setJustifyContentMode(JustifyContentMode.END);
+
+        mainContainer.add(headerLayout, pageTitle, pageDescription);
         if (subreddits.isEmpty()) {
-            mainContainer.add(new Paragraph("There are no subreddits yet. Create one first, then come back."));
+            Div emptyCommunityNotice = new Div();
+            emptyCommunityNotice.getStyle()
+                .set("background", "#fff7ed")
+                .set("border", "1px solid #fed7aa")
+                .set("border-radius", "10px")
+                .set("color", "#7c2d12")
+                .set("padding", "14px 16px");
+            Paragraph noticeText = new Paragraph(
+                    "There are no communities yet. Create one before publishing your first post.");
+            noticeText.getStyle().set("margin", "0 0 10px");
+            Button createCommunity = new Button("Create a community",
+                    e -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
+            createCommunity.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+            emptyCommunityNotice.add(noticeText, createCommunity);
+            mainContainer.add(emptyCommunityNotice);
+            subreddit.setEnabled(false);
+            submit.setEnabled(false);
         }
-        mainContainer.add(title, content, subreddit, new HorizontalLayout(submit, cancel));
+        mainContainer.add(title, content, subreddit, actions);
         add(mainContainer);
+    }
+
+    private User resolveCurrentUser(UserService userService) {
+        Long sessionUserId = getUI()
+                .map(ui -> (Long) ui.getSession().getAttribute("userId"))
+                .orElse(null);
+        return sessionUserId == null ? userService.getCurrentUser() : userService.findById(sessionUserId);
     }
 
     private void handleLogout() {
@@ -150,6 +198,7 @@ public class CreatePostView extends VerticalLayout {
         getUI().ifPresent(ui -> {
             ui.getSession().setAttribute("jwt", null);
             ui.getSession().setAttribute("username", null);
+            ui.getSession().setAttribute("userId", null);
             ui.navigate("");
         });
     }
