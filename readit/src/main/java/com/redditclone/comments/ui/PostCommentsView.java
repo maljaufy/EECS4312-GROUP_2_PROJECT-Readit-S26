@@ -6,6 +6,7 @@ import com.redditclone.comments.service.CommentService;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
 import com.redditclone.user.service.UserService;
+import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H2;
@@ -37,6 +38,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
     private final PostService postService;
     private final CommentService commentService;
     private final UserService userService;
+    private final VoteService voteService;
 
     // One coordinator per page load - shared by every CommentThreadComponent in this
     // thread so that opening a reply box anywhere closes whichever one was open before.
@@ -47,14 +49,17 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
     public PostCommentsView(PostService postService,
                             CommentService commentService,
-                            UserService userService) {
+                            UserService userService,
+                            VoteService voteService) {
         this.postService = postService;
         this.commentService = commentService;
         this.userService = userService;
+        this.voteService = voteService;
 
         setPadding(true);
         setSpacing(true);
         setMaxWidth("800px");
+        addAttachListener(event -> registerVoteUpdateListener());
     }
 
     /**
@@ -164,7 +169,25 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
         for (Comment comment : topLevel) {
             commentsContainer.add(new CommentThreadComponent(
-                    comment, 0, commentService, userService, this::loadTopLevelComments, replyFormCoordinator));
+                    comment, 0, commentService, userService, voteService,
+                    this::loadTopLevelComments, replyFormCoordinator));
         }
+    }
+
+    private void registerVoteUpdateListener() {
+        getUI().ifPresent(ui -> ui.getPage().executeJs("""
+                if (!window.readitVoteUpdateListenerRegistered) {
+                  window.readitVoteUpdateListenerRegistered = true;
+                  window.addEventListener('readit-vote-updated', function(event) {
+                    const detail = event.detail;
+                    const target = detail.targetType + ':' + detail.targetId;
+                    document.querySelectorAll('[data-vote-target]').forEach(function(element) {
+                      if (element.getAttribute('data-vote-target') === target) {
+                        element.textContent = String(detail.score);
+                      }
+                    });
+                  });
+                }
+                """));
     }
 }

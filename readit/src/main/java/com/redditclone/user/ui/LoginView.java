@@ -18,6 +18,7 @@ import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.router.RouterLink;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,6 +28,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @Route("")
+@RouteAlias("login")
 @PageTitle("Login | Reddit Clone")
 public class LoginView extends Composite<VerticalLayout>{
     /*
@@ -50,13 +52,15 @@ public class LoginView extends Composite<VerticalLayout>{
         getContent().setSizeFull();
         getContent().setAlignItems(Alignment.CENTER);
         getContent().setJustifyContentMode(JustifyContentMode.CENTER);
+        getContent().addClassName("auth-view");
         getContent().getStyle()
-            .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
+            .set("background", "linear-gradient(135deg, #fff7ed 0%, #eff6ff 100%)")
             .set("padding", "20px");
 
         // Create card container
         VerticalLayout card = new VerticalLayout();
         card.setWidth("400px");
+        card.setMaxWidth("calc(100vw - 40px)");
         card.setPadding(true);
         card.setSpacing(true);
         card.getStyle()
@@ -70,7 +74,7 @@ public class LoginView extends Composite<VerticalLayout>{
         logo.getStyle()
             .set("margin", "0 0 10px 0")
             .set("text-align", "center")
-            .set("color", "#F5DEB3");
+            .set("color", "#ff4500");
 
         H1 title = new H1("Welcome Back");
         title.getStyle()
@@ -78,7 +82,7 @@ public class LoginView extends Composite<VerticalLayout>{
             .set("text-align", "center")
             .set("font-size", "28px")
             .set("font-weight", "600")
-            .set("color", "#F5DEB3");
+            .set("color", "#111827");
 
         Paragraph subtitle = new Paragraph("Log in to continue to Readit");
         subtitle.getStyle()
@@ -100,7 +104,7 @@ public class LoginView extends Composite<VerticalLayout>{
         loginButton.setWidthFull();
         loginButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         loginButton.getStyle()
-            .set("background", "#8B7355")
+            .set("background", "#ff4500")
             .set("font-weight", "600")
             .set("padding", "12px")
             .set("margin-bottom", "16px");
@@ -110,7 +114,7 @@ public class LoginView extends Composite<VerticalLayout>{
         registerLink.getStyle()
             .set("text-align", "center")
             .set("display", "block")
-            .set("color", "#8B7355")
+            .set("color", "#006fbb")
             .set("text-decoration", "none")
             .set("margin-top", "8px");
 

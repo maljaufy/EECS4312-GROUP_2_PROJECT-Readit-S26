@@ -60,6 +60,7 @@ public class FeedView extends VerticalLayout {
         
         // Three-column layout
         HorizontalLayout threeColumnLayout = new HorizontalLayout();
+        threeColumnLayout.addClassName("feed-shell");
         threeColumnLayout.setWidthFull();
         threeColumnLayout.setHeightFull();
         threeColumnLayout.setSpacing(false);
@@ -68,35 +69,44 @@ public class FeedView extends VerticalLayout {
 
         // Left sidebar
         VerticalLayout leftSidebar = createLeftSidebar();
+        leftSidebar.addClassName("feed-left-sidebar");
         leftSidebar.setWidth("270px");
         leftSidebar.setHeightFull();
         leftSidebar.getStyle()
             .set("position", "sticky")
             .set("top", "0")
+            .set("flex-shrink", "0")
             .set("overflow-y", "auto")
             .set("padding", "16px 8px");
 
-        // Center feed
+        // Center feed. The outer column consumes the available space while the
+        // inner feed stays at a comfortable reading width.
         VerticalLayout centerFeed = createCenterFeed();
-        centerFeed.setWidth("640px");
-        centerFeed.setHeightFull();
-        centerFeed.getStyle()
-            .set("flex-grow", "1")
-            .set("padding", "16px 0")
+        VerticalLayout centerColumn = new VerticalLayout(centerFeed);
+        centerColumn.addClassName("feed-center-column");
+        centerColumn.setWidthFull();
+        centerColumn.setHeightFull();
+        centerColumn.setPadding(false);
+        centerColumn.setSpacing(false);
+        centerColumn.setAlignItems(Alignment.CENTER);
+        centerColumn.getStyle()
+            .set("padding", "20px 24px")
             .set("overflow-y", "auto");
 
         // Right sidebar
         VerticalLayout rightSidebar = createRightSidebar();
+        rightSidebar.addClassName("feed-right-sidebar");
         rightSidebar.setWidth("312px");
         rightSidebar.setHeightFull();
         rightSidebar.getStyle()
             .set("position", "sticky")
             .set("top", "0")
+            .set("flex-shrink", "0")
             .set("overflow-y", "auto")
             .set("padding", "16px 8px");
 
-        threeColumnLayout.add(leftSidebar, centerFeed, rightSidebar);
-        threeColumnLayout.expand(centerFeed);
+        threeColumnLayout.add(leftSidebar, centerColumn, rightSidebar);
+        threeColumnLayout.expand(centerColumn);
 
         VerticalLayout mainLayout = new VerticalLayout(topHeader, threeColumnLayout);
         mainLayout.setSizeFull();
@@ -110,6 +120,7 @@ public class FeedView extends VerticalLayout {
 
     private HorizontalLayout createTopHeader() {
         HorizontalLayout header = new HorizontalLayout();
+        header.addClassName("feed-header");
         header.setWidthFull();
         header.setJustifyContentMode(JustifyContentMode.BETWEEN);
         header.setAlignItems(Alignment.CENTER);
@@ -316,12 +327,17 @@ public class FeedView extends VerticalLayout {
 
     private VerticalLayout createCenterFeed() {
         VerticalLayout feed = new VerticalLayout();
+        feed.addClassName("feed-content");
+        feed.setWidthFull();
+        feed.setMaxWidth("900px");
         feed.setSpacing(true);
         feed.setPadding(false);
 
         // Create post input bar
         Div createPostBar = new Div();
         createPostBar.getStyle()
+            .set("width", "100%")
+            .set("box-sizing", "border-box")
             .set("background", "white")
             .set("border-radius", "4px")
             .set("padding", "12px")
@@ -437,12 +453,18 @@ public class FeedView extends VerticalLayout {
         recentPostsList.setSpacing(false);
         recentPostsList.setPadding(false);
 
-        // Sample recent posts
-        recentPostsList.add(createRecentPostItem("r/technology", "AI breakthrough in 2024"));
-        recentPostsList.add(createRecentPostItem("r/gaming", "New game announcement"));
-        recentPostsList.add(createRecentPostItem("r/science", "Climate research update"));
-        recentPostsList.add(createRecentPostItem("r/music", "Album review: Best of 2024"));
-        recentPostsList.add(createRecentPostItem("r/movies", "Oscar predictions"));
+        List<PostSummaryDto> recentPosts = postService.getFeed().stream().limit(5).toList();
+        if (recentPosts.isEmpty()) {
+            Paragraph noRecentPosts = new Paragraph("New activity will appear here once posts are published.");
+            noRecentPosts.getStyle()
+                .set("color", "#667085")
+                .set("font-size", "13px")
+                .set("line-height", "1.5")
+                .set("margin", "4px 0");
+            recentPostsList.add(noRecentPosts);
+        } else {
+            recentPosts.forEach(post -> recentPostsList.add(createRecentPostItem(post)));
+        }
 
         recentPostsCard.add(recentTitle, recentPostsList);
 
@@ -450,14 +472,14 @@ public class FeedView extends VerticalLayout {
         return sidebar;
     }
 
-    private Div createRecentPostItem(String subreddit, String title) {
+    private Div createRecentPostItem(PostSummaryDto post) {
         Div item = new Div();
         item.getStyle()
             .set("padding", "8px 0")
             .set("border-bottom", "1px solid #eee")
             .set("cursor", "pointer");
 
-        Span subredditSpan = new Span(subreddit);
+        Span subredditSpan = new Span("r/" + post.subredditName());
         subredditSpan.getStyle()
             .set("font-size", "12px")
             .set("font-weight", "600")
@@ -465,7 +487,7 @@ public class FeedView extends VerticalLayout {
             .set("display", "block")
             .set("margin-bottom", "4px");
 
-        Span titleSpan = new Span(title);
+        Span titleSpan = new Span(post.title());
         titleSpan.getStyle()
             .set("font-size", "13px")
             .set("color", "#1c1c1c")
@@ -473,7 +495,8 @@ public class FeedView extends VerticalLayout {
             .set("line-height", "1.4");
 
         item.add(subredditSpan, titleSpan);
-        item.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+        item.addClickListener(e -> getUI().ifPresent(
+                ui -> ui.navigate("post/" + post.id() + "/comments")));
         
         addHoverEffect(item);
         
@@ -496,10 +519,16 @@ public class FeedView extends VerticalLayout {
             Div emptyState = new Div();
             emptyState.getStyle()
                 .set("text-align", "center")
-                .set("padding", "40px 20px")
+                .set("padding", "52px 28px")
+                .set("min-height", "260px")
+                .set("box-sizing", "border-box")
                 .set("background", "white")
                 .set("border", "1px solid #ccc")
-                .set("border-radius", "4px");
+                .set("border-radius", "10px")
+                .set("display", "flex")
+                .set("flex-direction", "column")
+                .set("align-items", "center")
+                .set("justify-content", "center");
 
             H3 emptyIcon = new H3("📭");
             emptyIcon.getStyle()
@@ -515,11 +544,26 @@ public class FeedView extends VerticalLayout {
 
             Paragraph emptyText = new Paragraph("Be the first to create a post and start the conversation!");
             emptyText.getStyle()
-                .set("margin", "0")
+                .set("margin", "0 0 22px")
                 .set("color", "#7c7c7c")
                 .set("font-size", "14px");
 
-            emptyState.add(emptyIcon, emptyTitle, emptyText);
+            Button createPost = new Button("Create the first post",
+                    event -> getUI().ifPresent(ui -> ui.navigate("create-post")));
+            createPost.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            createPost.getStyle()
+                .set("background", "#ff4500")
+                .set("font-weight", "700");
+
+            Button createCommunity = new Button("Start a community",
+                    event -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
+            createCommunity.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+            HorizontalLayout emptyActions = new HorizontalLayout(createPost, createCommunity);
+            emptyActions.setJustifyContentMode(JustifyContentMode.CENTER);
+            emptyActions.getStyle().set("flex-wrap", "wrap");
+
+            emptyState.add(emptyIcon, emptyTitle, emptyText, emptyActions);
             postList.add(emptyState);
             return;
         }
@@ -721,6 +765,7 @@ public class FeedView extends VerticalLayout {
         getUI().ifPresent(ui -> {
             ui.getSession().setAttribute("jwt", null);
             ui.getSession().setAttribute("username", null);
+            ui.getSession().setAttribute("userId", null);
             ui.navigate("");
         });
     }

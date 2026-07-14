@@ -4,6 +4,8 @@ import com.redditclone.comments.domain.Comment;
 import com.redditclone.comments.dto.CommentDto;
 import com.redditclone.comments.service.CommentService;
 import com.redditclone.user.service.UserService;
+import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Span;
@@ -37,6 +39,7 @@ public class CommentThreadComponent extends VerticalLayout {
     private final Comment comment;
     private final CommentService commentService;
     private final UserService userService;
+    private final VoteService voteService;
     private final int depth;
     private final Runnable onThreadChanged;
     private final ReplyFormCoordinator replyFormCoordinator;
@@ -49,12 +52,14 @@ public class CommentThreadComponent extends VerticalLayout {
                                   int depth,
                                   CommentService commentService,
                                   UserService userService,
+                                  VoteService voteService,
                                   Runnable onThreadChanged,
                                   ReplyFormCoordinator replyFormCoordinator) {
         this.comment = comment;
         this.depth = depth;
         this.commentService = commentService;
         this.userService = userService;
+        this.voteService = voteService;
         this.onThreadChanged = onThreadChanged;
         this.replyFormCoordinator = replyFormCoordinator;
 
@@ -123,6 +128,19 @@ public class CommentThreadComponent extends VerticalLayout {
         reply.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         actions.add(reply);
 
+        Span score = new Span(String.valueOf(voteService.getCommentScore(comment.getId())));
+        score.getElement().setAttribute("data-vote-target", "COMMENT:" + comment.getId());
+        score.getStyle().set("font-weight", "600");
+
+        Button upvote = new Button("▲", e -> castCommentVote(true, score));
+        upvote.setAriaLabel("Upvote comment");
+        upvote.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+        Button downvote = new Button("▼", e -> castCommentVote(false, score));
+        downvote.setAriaLabel("Downvote comment");
+        downvote.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        actions.add(upvote, score, downvote);
+
         Long currentUserId = getCurrentUserId();
 
         if (currentUserId != null && currentUserId.equals(comment.getAuthor().getId())) {
@@ -132,6 +150,24 @@ public class CommentThreadComponent extends VerticalLayout {
         }
 
         return actions;
+    }
+
+    private void castCommentVote(boolean upvote, Span score) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            Notification error = Notification.show("Please log in first.");
+            error.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+        try {
+            VoteResult result = upvote
+                    ? voteService.upvoteComment(currentUserId, comment.getId())
+                    : voteService.downvoteComment(currentUserId, comment.getId());
+            score.setText(String.valueOf(result.score()));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            Notification error = Notification.show(exception.getMessage());
+            error.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
     }
 
     /**
@@ -247,7 +283,8 @@ public class CommentThreadComponent extends VerticalLayout {
         List<Comment> replies = commentService.findReplies(comment);
         for (Comment reply : replies) {
             repliesContainer.add(new CommentThreadComponent(
-                    reply, depth + 1, commentService, userService, onThreadChanged, replyFormCoordinator));
+                    reply, depth + 1, commentService, userService, voteService,
+                    onThreadChanged, replyFormCoordinator));
         }
     }
 }
