@@ -20,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class VoteService {
@@ -176,11 +179,6 @@ public class VoteService {
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
-        Long postAuthorId = post.getAuthor().getId();
-
-        if (voterId.equals(postAuthorId)) {
-            throw new IllegalArgumentException("Users cannot vote on their own posts");
-        }
 
         userService.findById(voterId);
         return post;
@@ -196,9 +194,6 @@ public class VoteService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found with ID: " + commentId));
-        if (voterId.equals(comment.getAuthor().getId())) {
-            throw new IllegalArgumentException("Users cannot vote on their own comments");
-        }
         return comment;
     }
 
@@ -232,7 +227,33 @@ public class VoteService {
             broadcast.run();
         }
     }
-
+    @Transactional(readOnly = true)
+    public Map<Long, VoteValue> getCurrentPostVotes(Long voterId, Collection<Long> postIds) {
+        if (voterId == null || postIds.isEmpty()) {
+            return Map.of();
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetIdIn(voterId, VoteTargetType.POST, postIds)
+                .stream()
+                .collect(Collectors.toMap(Vote::getTargetId, Vote::getValue));
+    }
+    @Transactional(readOnly = true)
+    public VoteValue getCurrentCommentVote(Long voterId, Long commentId) {
+        if (voterId == null) {
+            return null;
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(voterId, VoteTargetType.COMMENT, commentId)
+                .map(Vote::getValue)
+                .orElse(null);
+    }
+    @Transactional(readOnly = true)
+    public VoteValue getCurrentPostVote(Long voterId, Long postId) {
+        if (voterId == null) {
+            return null;
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(voterId, VoteTargetType.POST, postId)
+                .map(Vote::getValue)
+                .orElse(null);
+    }
     @FunctionalInterface
     private interface ScoreUpdater {
         void update(int score);

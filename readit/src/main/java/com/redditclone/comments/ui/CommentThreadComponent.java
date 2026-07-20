@@ -4,10 +4,12 @@ import com.redditclone.comments.domain.Comment;
 import com.redditclone.comments.dto.CommentDto;
 import com.redditclone.comments.service.CommentService;
 import com.redditclone.user.service.UserService;
+import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -33,8 +35,13 @@ public class CommentThreadComponent extends VerticalLayout {
 
     private static final DateTimeFormatter TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm");
-    private static final int INDENT_PER_LEVEL_PX = 32;
-    private static final int MAX_INDENT_PX = 320; // cap indentation so deep threads don't run off-screen
+    private static final int INDENT_PER_LEVEL_PX = 20;
+    private static final int MAX_INDENT_PX = 280; // cap indentation so deep threads don't run off-screen
+
+    private static final String REDDIT_ORANGE = "#FF4500";
+    private static final String REDDIT_BLUE = "#7193FF";
+    private static final String MUTED_GRAY = "#878A8C";
+    private static final String INK = "#1c1c1c";
 
     private final Comment comment;
     private final CommentService commentService;
@@ -47,6 +54,9 @@ public class CommentThreadComponent extends VerticalLayout {
     private VerticalLayout repliesContainer;
     private VerticalLayout replyFormElement;
     private boolean showingReplyForm = false;
+    private VoteValue currentVote;
+    private Button upvoteBtn;
+    private Button downvoteBtn;
 
     public CommentThreadComponent(Comment comment,
                                   int depth,
@@ -69,10 +79,23 @@ public class CommentThreadComponent extends VerticalLayout {
 
         int indent = Math.min(depth * INDENT_PER_LEVEL_PX, MAX_INDENT_PX);
         getStyle().set("margin-left", indent + "px");
-        getStyle().set("padding-left", depth > 0 ? "12px" : "0px");
-        getStyle().set("border-left", depth > 0 ? "2px solid var(--lumo-contrast-10pct)" : "none");
-        getStyle().set("margin-top", "8px");
+        getStyle().set("padding-left", depth > 0 ? "14px" : "0px");
+        getStyle().set("border-left", depth > 0 ? "2px solid #edeff1" : "none");
+        getStyle().set("margin-top", depth > 0 ? "10px" : "16px");
         getStyle().set("width", "calc(100% - " + indent + "px)");
+        getStyle().set("transition", "border-color 0.15s ease");
+
+        // Subtle hover highlight on the thread guide line, like reddit.com
+        getElement().addEventListener("mouseenter", e -> {
+            if (depth > 0) {
+                getStyle().set("border-left", "2px solid " + MUTED_GRAY);
+            }
+        }).addEventData("event.stopPropagation");
+        getElement().addEventListener("mouseleave", e -> {
+            if (depth > 0) {
+                getStyle().set("border-left", "2px solid #edeff1");
+            }
+        }).addEventData("event.stopPropagation");
 
         add(buildHeader());
         add(buildBody());
@@ -85,6 +108,13 @@ public class CommentThreadComponent extends VerticalLayout {
         add(repliesContainer);
 
         loadReplies();
+
+        // getUI()/session isn't available until the component is attached,
+        // so the initial vote lookup has to happen here, not in the constructor body.
+        addAttachListener(event -> {
+            currentVote = voteService.getCurrentCommentVote(getCurrentUserId(), comment.getId());
+            styleVoteButtons(upvoteBtn, downvoteBtn);
+        });
     }
 
     /**
@@ -99,60 +129,123 @@ public class CommentThreadComponent extends VerticalLayout {
 
     private HorizontalLayout buildHeader() {
         HorizontalLayout header = new HorizontalLayout();
-        header.setSpacing(true);
+        header.setSpacing(false);
         header.setPadding(false);
+        header.getStyle().set("align-items", "center").set("gap", "6px");
 
-        Span author = new Span(comment.getAuthor().getUsername());
-        author.getStyle().set("font-weight", "600");
+        Span avatar = new Span("●");
+        avatar.getStyle()
+                .set("color", avatarColorFor(comment.getAuthor().getUsername()))
+                .set("font-size", "18px")
+                .set("line-height", "1")
+                .set("margin-right", "2px");
+
+        Span author = new Span("u/" + comment.getAuthor().getUsername());
+        author.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "12.5px")
+                .set("color", INK);
+
+        Span dot = new Span("•");
+        dot.getStyle().set("color", MUTED_GRAY).set("font-size", "11px");
 
         Span timestamp = new Span(comment.getCreatedAt().format(TIMESTAMP_FORMAT));
-        timestamp.getStyle().set("color", "var(--lumo-secondary-text-color)");
-        timestamp.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        timestamp.getStyle()
+                .set("color", MUTED_GRAY)
+                .set("font-size", "12px");
 
-        header.add(author, timestamp);
+        header.add(avatar, author, dot, timestamp);
         return header;
     }
 
-    private Span buildBody() {
-        Span body = new Span(comment.getBody());
-        body.getStyle().set("white-space", "pre-wrap");
+    private Div buildBody() {
+        Div body = new Div(new Span(comment.getBody()));
+        body.getStyle()
+                .set("white-space", "pre-wrap")
+                .set("color", INK)
+                .set("font-size", "14px")
+                .set("line-height", "1.4")
+                .set("margin", "2px 0 4px 0");
         return body;
     }
 
     private HorizontalLayout buildActionRow() {
         HorizontalLayout actions = new HorizontalLayout();
-        actions.setSpacing(true);
+        actions.setSpacing(false);
         actions.setPadding(false);
+        actions.getStyle().set("align-items", "center").set("gap", "2px");
 
-        Button reply = new Button("Reply", e -> toggleReplyForm());
-        reply.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        actions.add(reply);
+        upvoteBtn = new Button("▲");
+        upvoteBtn.setAriaLabel("Upvote comment");
+        upvoteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        styleArrowButton(upvoteBtn);
 
         Span score = new Span(String.valueOf(voteService.getCommentScore(comment.getId())));
         score.getElement().setAttribute("data-vote-target", "COMMENT:" + comment.getId());
-        score.getStyle().set("font-weight", "600");
+        score.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "12px")
+                .set("color", MUTED_GRAY)
+                .set("min-width", "18px")
+                .set("text-align", "center");
 
-        Button upvote = new Button("▲", e -> castCommentVote(true, score));
-        upvote.setAriaLabel("Upvote comment");
-        upvote.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        downvoteBtn = new Button("▼");
+        downvoteBtn.setAriaLabel("Downvote comment");
+        downvoteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        styleArrowButton(downvoteBtn);
 
-        Button downvote = new Button("▼", e -> castCommentVote(false, score));
-        downvote.setAriaLabel("Downvote comment");
-        downvote.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        actions.add(upvote, score, downvote);
+        upvoteBtn.addClickListener(e -> castCommentVote(VoteValue.UPVOTE, score, upvoteBtn, downvoteBtn));
+        downvoteBtn.addClickListener(e -> castCommentVote(VoteValue.DOWNVOTE, score, upvoteBtn, downvoteBtn));
+
+        Button reply = new Button("Reply", e -> toggleReplyForm());
+        styleTextActionButton(reply);
+        reply.getStyle().set("margin-left", "10px");
+
+        actions.add(upvoteBtn, score, downvoteBtn, reply);
 
         Long currentUserId = getCurrentUserId();
 
         if (currentUserId != null && currentUserId.equals(comment.getAuthor().getId())) {
             Button delete = new Button("Delete", e -> deleteThisComment());
-            delete.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
+            styleTextActionButton(delete);
+            delete.getStyle().set("color", "#d93a00");
             actions.add(delete);
         }
 
         return actions;
     }
 
-    private void castCommentVote(boolean upvote, Span score) {
+    private void styleArrowButton(Button button) {
+        button.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("font-size", "13px")
+                .set("padding", "2px 6px")
+                .set("min-width", "0")
+                .set("cursor", "pointer");
+    }
+
+    private void styleTextActionButton(Button button) {
+        button.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        button.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("color", MUTED_GRAY)
+                .set("font-size", "12px")
+                .set("font-weight", "700")
+                .set("padding", "2px 6px")
+                .set("min-width", "0")
+                .set("cursor", "pointer");
+    }
+
+    private String avatarColorFor(String username) {
+        // Deterministic pseudo-random color per user, like reddit's avatar tinting
+        String[] palette = {"#0079D3", "#FF4500", "#46D160", "#FFB000", "#7193FF", "#E4462F"};
+        int index = Math.abs(username.hashCode()) % palette.length;
+        return palette[index];
+    }
+
+    private void castCommentVote(VoteValue clickedValue, Span score, Button upvoteBtn, Button downvoteBtn) {
         Long currentUserId = getCurrentUserId();
         if (currentUserId == null) {
             Notification error = Notification.show("Please log in first.");
@@ -160,14 +253,32 @@ public class CommentThreadComponent extends VerticalLayout {
             return;
         }
         try {
-            VoteResult result = upvote
-                    ? voteService.upvoteComment(currentUserId, comment.getId())
-                    : voteService.downvoteComment(currentUserId, comment.getId());
+            VoteResult result;
+            if (currentVote == clickedValue) {
+                result = voteService.removeCommentVote(currentUserId, comment.getId());
+                currentVote = null;
+            } else {
+                result = clickedValue == VoteValue.UPVOTE
+                        ? voteService.upvoteComment(currentUserId, comment.getId())
+                        : voteService.downvoteComment(currentUserId, comment.getId());
+                currentVote = clickedValue;
+            }
             score.setText(String.valueOf(result.score()));
+            styleVoteButtons(upvoteBtn, downvoteBtn);
+            score.getStyle().set("color", currentVote == null ? MUTED_GRAY
+                    : currentVote == VoteValue.UPVOTE ? REDDIT_ORANGE : REDDIT_BLUE);
         } catch (IllegalArgumentException | IllegalStateException exception) {
             Notification error = Notification.show(exception.getMessage());
             error.addThemeVariants(NotificationVariant.LUMO_ERROR);
         }
+    }
+
+    private void styleVoteButtons(Button upvoteBtn, Button downvoteBtn) {
+        if (upvoteBtn == null || downvoteBtn == null) {
+            return;
+        }
+        upvoteBtn.getStyle().set("color", currentVote == VoteValue.UPVOTE ? REDDIT_ORANGE : MUTED_GRAY);
+        downvoteBtn.getStyle().set("color", currentVote == VoteValue.DOWNVOTE ? REDDIT_BLUE : MUTED_GRAY);
     }
 
     /**
@@ -214,13 +325,15 @@ public class CommentThreadComponent extends VerticalLayout {
         VerticalLayout form = new VerticalLayout();
         form.setPadding(false);
         form.setSpacing(true);
+        form.getStyle().set("margin-top", "6px");
 
         TextArea replyText = new TextArea();
         replyText.setPlaceholder("Write a reply...");
         replyText.setWidthFull();
         replyText.setMinHeight("80px");
+        replyText.getStyle().set("--vaadin-input-field-border-radius", "8px");
 
-        Button submit = new Button("Submit reply", e -> {
+        Button submit = new Button("Reply", e -> {
             Long currentUserId = getCurrentUserId();
 
             if (currentUserId == null) {
@@ -247,9 +360,14 @@ public class CommentThreadComponent extends VerticalLayout {
             }
         });
         submit.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        submit.getStyle()
+                .set("background", REDDIT_ORANGE)
+                .set("border-radius", "20px")
+                .set("font-weight", "700");
 
         Button cancel = new Button("Cancel", e -> toggleReplyForm());
         cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        cancel.getStyle().set("border-radius", "20px");
 
         form.add(replyText, new HorizontalLayout(submit, cancel));
         return form;

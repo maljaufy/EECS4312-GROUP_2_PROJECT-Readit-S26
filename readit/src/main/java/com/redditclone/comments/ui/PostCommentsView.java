@@ -6,12 +6,18 @@ import com.redditclone.comments.service.CommentService;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
 import com.redditclone.user.service.UserService;
+import com.redditclone.voting.domain.VoteValue;
+import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
@@ -22,6 +28,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +42,14 @@ import java.util.Optional;
 @PageTitle("Comments | Reddit Clone")
 public class PostCommentsView extends VerticalLayout implements BeforeEnterObserver {
 
+    private static final DateTimeFormatter TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("MMM d, yyyy 'at' HH:mm");
+
+    private static final String REDDIT_ORANGE = "#FF4500";
+    private static final String REDDIT_BLUE = "#7193FF";
+    private static final String MUTED_GRAY = "#878A8C";
+    private static final String INK = "#1c1c1c";
+
     private final PostService postService;
     private final CommentService commentService;
     private final UserService userService;
@@ -46,6 +61,10 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
     private VerticalLayout commentsContainer;
     private Post post;
+    private VoteValue currentPostVote;
+    private Button postUpvoteBtn;
+    private Button postDownvoteBtn;
+    private Span postScoreLabel;
 
     public PostCommentsView(PostService postService,
                             CommentService commentService,
@@ -57,8 +76,9 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
         this.voteService = voteService;
 
         setPadding(true);
-        setSpacing(true);
+        setSpacing(false);
         setMaxWidth("800px");
+        getStyle().set("margin", "0 auto");
         addAttachListener(event -> registerVoteUpdateListener());
     }
 
@@ -99,13 +119,21 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
             return;
         }
 
+        this.currentPostVote = voteService.getCurrentPostVote(getCurrentUserId(), post.getId());
+
         removeAll();
+        add(buildTopBar());
         add(new H2(post.getTitle()));
+
         if (post.getContent() != null && !post.getContent().isBlank()) {
             add(new Paragraph(post.getContent()));
         }
 
+        add(buildPostVoteRow());
+
         add(buildNewCommentForm());
+        add(divider());
+
         add(new H3("Comments"));
 
         commentsContainer = new VerticalLayout();
@@ -115,6 +143,122 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
         add(commentsContainer);
 
         loadTopLevelComments();
+    }
+
+    /**
+     * Top row: "r/subreddit • posted by u/author • date at time" with a button
+     * back to the main feed.
+     */
+    private VerticalLayout buildTopBar() {
+        VerticalLayout bar = new VerticalLayout();
+        bar.setWidthFull();
+        Span metaLine = new Span("r/" + post.getSubreddit().getName()
+                + "  •  posted by u/" + post.getAuthor().getUsername()
+                + "  •  " + post.getCreatedAt().format(TIMESTAMP_FORMAT));
+        metaLine.getStyle()
+                .set("color", MUTED_GRAY)
+                .set("font-size", "13px")
+                .set("font-weight", "500")
+        .set("margin-bottom","6px");
+
+        Button backToFeed = new Button("Back to feed", VaadinIcon.ARROW_LEFT.create());
+        backToFeed.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        backToFeed.getStyle()
+                .set("color", "#0079D3")
+                .set("font-weight", "600");
+        backToFeed.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
+
+        bar.add(backToFeed,metaLine);
+        return bar;
+    }
+
+    /**
+     * Upvote/downvote row for the post itself, styled to match the comment-level
+     * vote arrows in CommentThreadComponent (same colors, same toggle behavior).
+     */
+    private HorizontalLayout buildPostVoteRow() {
+        HorizontalLayout row = new HorizontalLayout();
+        row.setSpacing(false);
+        row.setPadding(false);
+        row.getStyle().set("align-items", "center").set("gap", "4px").set("margin", "8px 0");
+
+        postUpvoteBtn = new Button("▲");
+        postUpvoteBtn.setAriaLabel("Upvote post");
+        postUpvoteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        styleArrowButton(postUpvoteBtn);
+
+        postScoreLabel = new Span(String.valueOf(voteService.getPostScore(post.getId())));
+        postScoreLabel.getElement().setAttribute("data-vote-target", "POST:" + post.getId());
+        postScoreLabel.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "13px")
+                .set("min-width", "20px")
+                .set("text-align", "center");
+
+        postDownvoteBtn = new Button("▼");
+        postDownvoteBtn.setAriaLabel("Downvote post");
+        postDownvoteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        styleArrowButton(postDownvoteBtn);
+
+        postUpvoteBtn.addClickListener(e -> castPostVote(VoteValue.UPVOTE));
+        postDownvoteBtn.addClickListener(e -> castPostVote(VoteValue.DOWNVOTE));
+
+        styleVoteButtons();
+
+        row.add(postUpvoteBtn, postScoreLabel, postDownvoteBtn);
+        return row;
+    }
+
+    private void castPostVote(VoteValue clickedValue) {
+        Long currentUserId = getCurrentUserId();
+        if (currentUserId == null) {
+            Notification error = Notification.show("Please log in first.");
+            error.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
+        try {
+            VoteResult result;
+            if (currentPostVote == clickedValue) {
+                result = voteService.removePostVote(currentUserId, post.getId());
+                currentPostVote = null;
+            } else {
+                result = clickedValue == VoteValue.UPVOTE
+                        ? voteService.upvotePost(currentUserId, post.getId())
+                        : voteService.downvotePost(currentUserId, post.getId());
+                currentPostVote = clickedValue;
+            }
+            postScoreLabel.setText(String.valueOf(result.score()));
+            styleVoteButtons();
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            Notification error = Notification.show(exception.getMessage());
+            error.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        }
+    }
+
+    private void styleVoteButtons() {
+        postUpvoteBtn.getStyle().set("color", currentPostVote == VoteValue.UPVOTE ? REDDIT_ORANGE : MUTED_GRAY);
+        postDownvoteBtn.getStyle().set("color", currentPostVote == VoteValue.DOWNVOTE ? REDDIT_BLUE : MUTED_GRAY);
+        postScoreLabel.getStyle().set("color", currentPostVote == null ? MUTED_GRAY
+                : currentPostVote == VoteValue.UPVOTE ? REDDIT_ORANGE : REDDIT_BLUE);
+    }
+
+    private void styleArrowButton(Button button) {
+        button.getStyle()
+                .set("background", "transparent")
+                .set("border", "none")
+                .set("font-size", "15px")
+                .set("padding", "2px 8px")
+                .set("min-width", "0")
+                .set("cursor", "pointer");
+    }
+
+    private Hr divider() {
+        Hr hr = new Hr();
+        hr.getStyle()
+                .set("border", "none")
+                .set("border-top", "1px solid #edeff1")
+                .set("margin", "12px 0");
+        return hr;
     }
 
     private VerticalLayout buildNewCommentForm() {
@@ -153,6 +297,10 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
             }
         });
         submit.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        submit.getStyle()
+                .set("background", REDDIT_ORANGE)
+                .set("border-radius", "20px")
+                .set("font-weight", "700");
 
         form.add(body, new HorizontalLayout(submit));
         return form;
@@ -171,6 +319,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
             commentsContainer.add(new CommentThreadComponent(
                     comment, 0, commentService, userService, voteService,
                     this::loadTopLevelComments, replyFormCoordinator));
+            commentsContainer.add(divider());
         }
     }
 

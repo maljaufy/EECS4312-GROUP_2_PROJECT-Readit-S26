@@ -7,10 +7,12 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface VoteRepository extends JpaRepository<Vote, Long> {
-
+    List<Vote> findByVoterIdAndTargetTypeAndTargetIdIn(Long voterId, VoteTargetType targetType, Collection<Long> targetIds);
     @Lock(LockModeType.OPTIMISTIC)
     Optional<Vote> findByVoterIdAndTargetTypeAndTargetId(
             Long voterId,
