@@ -8,19 +8,17 @@ import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
 import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.notification.Notification;
-import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
@@ -47,6 +45,7 @@ public class FeedView extends VerticalLayout {
     private final Button topBtn = new Button("\uD83C\uDFC6 Top");
 
     private PostSortOption currentSort = PostSortOption.HOT;
+    private Long sessionUserId;
 
     public FeedView(PostService postService, SubredditService subredditService,
                     VoteService voteService, UserSession userSession) {
@@ -62,11 +61,8 @@ public class FeedView extends VerticalLayout {
             .set("background", "#DAE0E6")
             .set("margin", "0");
 
-        // Top header bar
-        HorizontalLayout topHeader = createTopHeader();
-        
         // Feed content plus the optional right rail. MainLayout owns the
-        // persistent left navigation for every application page.
+        // persistent navigation and the single full-width top bar.
         HorizontalLayout threeColumnLayout = new HorizontalLayout();
         threeColumnLayout.addClassName("feed-shell");
         threeColumnLayout.setWidthFull();
@@ -104,100 +100,20 @@ public class FeedView extends VerticalLayout {
         threeColumnLayout.add(centerColumn, rightSidebar);
         threeColumnLayout.expand(centerColumn);
 
-        VerticalLayout mainLayout = new VerticalLayout(topHeader, threeColumnLayout);
+        VerticalLayout mainLayout = new VerticalLayout(threeColumnLayout);
         mainLayout.setSizeFull();
         mainLayout.setPadding(false);
         mainLayout.setSpacing(false);
 
         add(mainLayout);
-        addAttachListener(event -> registerVoteUpdateListener());
-        refresh();
-    }
-
-    private HorizontalLayout createTopHeader() {
-        HorizontalLayout header = new HorizontalLayout();
-        header.addClassName("feed-header");
-        header.setWidthFull();
-        header.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        header.setAlignItems(Alignment.CENTER);
-        header.getStyle()
-            .set("background", "#FFFFFF")
-            .set("border-bottom", "1px solid #ccc")
-            .set("padding", "8px 20px")
-            .set("position", "sticky")
-            .set("top", "0")
-            .set("z-index", "1000");
-
-        // Logo
-        H2 logo = new H2("📱 Readit");
-        logo.getStyle()
-            .set("margin", "0")
-            .set("color", "#FF4500")
-            .set("font-size", "24px")
-            .set("cursor", "pointer");
-        logo.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
-
-        // Search bar
-        TextField searchField = new TextField();
-        searchField.setWidth("400px");
-        searchField.setPlaceholder("Search Readit");
-        searchField.setClearButtonVisible(true);
-        searchField.getStyle()
-            .set("background", "#F6F7F8")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "20px");
-        
-        searchField.addValueChangeListener(e -> {
-            String query = e.getValue();
-            if (query != null && !query.trim().isEmpty()) {
-                performSearch(query.trim());
-            } else {
-                refresh();
-            }
+        addAttachListener(event -> {
+            sessionUserId = userSession.currentUserId(event.getUI());
+            registerVoteUpdateListener();
+            String pendingSearch = (String) event.getUI().getSession()
+                    .getAttribute(MainLayout.PENDING_FEED_SEARCH);
+            event.getUI().getSession().setAttribute(MainLayout.PENDING_FEED_SEARCH, null);
+            search(pendingSearch);
         });
-
-        // Sort buttons (Hot, New, Top)
-        HorizontalLayout sortButtons = new HorizontalLayout();
-        sortButtons.setSpacing(true);
-        sortButtons.setAlignItems(Alignment.CENTER);
-
-        styleSortButton(hotBtn, PostSortOption.HOT);
-        styleSortButton(newBtn, PostSortOption.NEW);
-        styleSortButton(topBtn, PostSortOption.TOP);
-
-        hotBtn.addClickListener(e -> applySort(PostSortOption.HOT));
-        newBtn.addClickListener(e -> applySort(PostSortOption.NEW));
-        topBtn.addClickListener(e -> applySort(PostSortOption.TOP));
-
-        sortButtons.add(hotBtn, newBtn, topBtn);
-
-        // User actions
-        HorizontalLayout userActions = new HorizontalLayout();
-        userActions.setSpacing(true);
-        userActions.setAlignItems(Alignment.CENTER);
-
-        Button popularBtn = new Button("Popular");
-        popularBtn.getStyle()
-            .set("background", "transparent")
-            .set("border", "none")
-            .set("color", "#0079D3")
-            .set("font-weight", "600")
-            .set("cursor", "pointer");
-
-        Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
-        logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
-        logoutButton.getStyle()
-            .set("background", "#FF4500")
-            .set("color", "white")
-            .set("font-weight", "600")
-            .set("padding", "8px 16px")
-            .set("border-radius", "20px");
-        logoutButton.addClickListener(e -> handleLogout());
-
-        userActions.add(sortButtons, popularBtn, logoutButton);
-
-        header.add(logo, searchField, userActions);
-        return header;
     }
 
     private VerticalLayout createLeftSidebar() {
@@ -364,8 +280,29 @@ public class FeedView extends VerticalLayout {
         postList.setWidthFull();
         postList.setSpacing(true);
 
-        feed.add(createPostBar, feedTitle, postList);
+        feed.add(createPostBar, buildFeedToolbar(feedTitle), postList);
         return feed;
+    }
+
+    private HorizontalLayout buildFeedToolbar(H3 feedTitle) {
+        styleSortButton(hotBtn, PostSortOption.HOT);
+        styleSortButton(newBtn, PostSortOption.NEW);
+        styleSortButton(topBtn, PostSortOption.TOP);
+
+        hotBtn.addClickListener(e -> applySort(PostSortOption.HOT));
+        newBtn.addClickListener(e -> applySort(PostSortOption.NEW));
+        topBtn.addClickListener(e -> applySort(PostSortOption.TOP));
+
+        HorizontalLayout sortButtons = new HorizontalLayout(hotBtn, newBtn, topBtn);
+        sortButtons.setSpacing(false);
+        sortButtons.setAlignItems(Alignment.CENTER);
+
+        HorizontalLayout toolbar = new HorizontalLayout(feedTitle, sortButtons);
+        toolbar.setWidthFull();
+        toolbar.setAlignItems(Alignment.CENTER);
+        toolbar.setJustifyContentMode(JustifyContentMode.BETWEEN);
+        toolbar.getStyle().set("margin-bottom", "8px");
+        return toolbar;
     }
 
     private VerticalLayout createRightSidebar() {
@@ -376,6 +313,8 @@ public class FeedView extends VerticalLayout {
         // Premium promotion
         Div premiumCard = new Div();
         premiumCard.getStyle()
+            .set("width", "100%")
+            .set("box-sizing", "border-box")
             .set("background", "white")
             .set("border", "1px solid #ccc")
             .set("border-radius", "4px")
@@ -410,6 +349,8 @@ public class FeedView extends VerticalLayout {
         // Recent Posts section
         Div recentPostsCard = new Div();
         recentPostsCard.getStyle()
+            .set("width", "100%")
+            .set("box-sizing", "border-box")
             .set("background", "white")
             .set("border", "1px solid #ccc")
             .set("border-radius", "4px")
@@ -614,8 +555,14 @@ public class FeedView extends VerticalLayout {
                 .set("padding", "4px")
                 .set("cursor", "pointer");
 
-        upvoteBtn.addClickListener(event -> castPostVote(post.id(), true, voteCount));
-        downvoteBtn.addClickListener(event -> castPostVote(post.id(), false, voteCount));
+        VoteValue existingVote = voteService.getPostVote(currentUserId(), post.id())
+                .orElse(null);
+        styleVoteSelection(upvoteBtn, downvoteBtn, existingVote);
+
+        upvoteBtn.addClickListener(event ->
+                castPostVote(post.id(), true, voteCount, upvoteBtn, downvoteBtn));
+        downvoteBtn.addClickListener(event ->
+                castPostVote(post.id(), false, voteCount, upvoteBtn, downvoteBtn));
 
         voteSection.add(upvoteBtn, voteCount, downvoteBtn);
 
@@ -727,22 +674,42 @@ public class FeedView extends VerticalLayout {
         return card;
     }
 
-    private void castPostVote(Long postId, boolean upvote, Span voteCount) {
+    private void castPostVote(Long postId, boolean upvote, Span voteCount,
+                              Button upvoteButton, Button downvoteButton) {
         try {
             Long voterId = currentUserId();
             if (voterId == null) {
                 throw new IllegalStateException("Please log in before voting");
             }
-            VoteResult result = upvote
-                    ? voteService.upvotePost(voterId, postId)
-                    : voteService.downvotePost(voterId, postId);
+            VoteValue requestedVote = upvote ? VoteValue.UPVOTE : VoteValue.DOWNVOTE;
+            VoteResult result = voteService.togglePostVote(voterId, postId, requestedVote);
             voteCount.setText(String.valueOf(result.score()));
+            styleVoteSelection(upvoteButton, downvoteButton, result.currentVote());
         } catch (IllegalArgumentException | IllegalStateException exception) {
             Notification.show(exception.getMessage(), 3_000, Notification.Position.MIDDLE);
         }
     }
 
+    private void styleVoteSelection(Button upvote, Button downvote, VoteValue selection) {
+        boolean upSelected = selection == VoteValue.UPVOTE;
+        boolean downSelected = selection == VoteValue.DOWNVOTE;
+
+        upvote.getElement().setAttribute("aria-pressed", String.valueOf(upSelected));
+        downvote.getElement().setAttribute("aria-pressed", String.valueOf(downSelected));
+        upvote.getStyle()
+                .set("color", upSelected ? "#FF4500" : "#7c7c7c")
+                .set("background", upSelected ? "#FFF1EB" : "transparent")
+                .set("border-radius", "50%");
+        downvote.getStyle()
+                .set("color", downSelected ? "#7193FF" : "#7c7c7c")
+                .set("background", downSelected ? "#EEF2FF" : "transparent")
+                .set("border-radius", "50%");
+    }
+
     private Long currentUserId() {
+        if (sessionUserId != null) {
+            return sessionUserId;
+        }
         return getUI().map(userSession::currentUserId).orElse(null);
     }
 
@@ -761,13 +728,6 @@ public class FeedView extends VerticalLayout {
                   });
                 }
                 """));
-    }
-
-    private void handleLogout() {
-        getUI().ifPresent(ui -> {
-            userSession.clear(ui);
-            ui.navigate("");
-        });
     }
 
     private VerticalLayout createCommunitiesSection() {
@@ -810,6 +770,14 @@ public class FeedView extends VerticalLayout {
 
         section.add(header, itemsList);
         return section;
+    }
+
+    public void search(String query) {
+        if (query == null || query.isBlank()) {
+            refresh();
+            return;
+        }
+        performSearch(query.trim());
     }
 
     private void performSearch(String query) {

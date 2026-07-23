@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class VoteService {
@@ -77,9 +78,36 @@ public class VoteService {
                 score -> post.setVoteScore(score));
     }
 
+    /**
+     * Applies Reddit-style button behavior: selecting the active direction
+     * removes the vote; selecting the other direction switches it.
+     */
+    @Transactional
+    @Retry(name = "votePersistence")
+    public VoteResult togglePostVote(Long voterId, Long postId, VoteValue value) {
+        Objects.requireNonNull(voterId, "voterId must not be null");
+        Objects.requireNonNull(postId, "postId must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+
+        Optional<VoteValue> currentVote = getPostVote(voterId, postId);
+        return currentVote.filter(value::equals).isPresent()
+                ? removePostVote(voterId, postId)
+                : voteOnPost(voterId, postId, value);
+    }
+
     @Transactional(readOnly = true)
     public int getPostScore(Long postId) {
         return getScore(VoteTargetType.POST, postId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<VoteValue> getPostVote(Long voterId, Long postId) {
+        if (voterId == null || postId == null) {
+            return Optional.empty();
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(
+                        voterId, VoteTargetType.POST, postId)
+                .map(Vote::getValue);
     }
 
     @Transactional
@@ -125,11 +153,14 @@ public class VoteService {
             return result(targetType, targetId, value, 0, false);
         }
 
-        int karmaDelta = value.getKarmaDelta();
+        boolean selfVote = voterId.equals(authorId);
+        int karmaDelta = selfVote ? 0 : value.getKarmaDelta();
         if (existingVote == null) {
             voteRepository.save(new Vote(voterId, targetType, targetId, value));
         } else {
-            karmaDelta -= existingVote.getValue().getKarmaDelta();
+            if (!selfVote) {
+                karmaDelta -= existingVote.getValue().getKarmaDelta();
+            }
             existingVote.setValue(value);
             voteRepository.save(existingVote);
         }
@@ -150,7 +181,9 @@ public class VoteService {
             return result(targetType, targetId, null, 0, false);
         }
 
-        int karmaDelta = -existingVote.getValue().getKarmaDelta();
+        int karmaDelta = voterId.equals(authorId)
+                ? 0
+                : -existingVote.getValue().getKarmaDelta();
         voteRepository.delete(existingVote);
         int score = getScore(targetType, targetId);
         scoreUpdater.update(score);
@@ -183,12 +216,6 @@ public class VoteService {
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
-        Long postAuthorId = post.getAuthor().getId();
-
-        if (voterId.equals(postAuthorId)) {
-            throw new IllegalArgumentException("Users cannot vote on their own posts");
-        }
-
         userService.findById(voterId);
         return post;
     }
@@ -203,9 +230,7 @@ public class VoteService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found with ID: " + commentId));
-        if (voterId.equals(comment.getAuthor().getId())) {
-            throw new IllegalArgumentException("Users cannot vote on their own comments");
-        }
+        userService.findById(voterId);
         return comment;
     }
 

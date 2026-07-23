@@ -13,6 +13,7 @@ import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.repository.SubredditRepository;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.repository.UserRepository;
+import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.repository.VoteRepository;
 import com.redditclone.voting.service.VoteService;
@@ -28,6 +29,8 @@ import java.time.Duration;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @DisplayName("Voting context PostgreSQL and Kafka integration tests")
@@ -99,6 +102,27 @@ class VotingKafkaIntegrationTest extends TestcontainersBase {
         assertFalse(repeatedCommand.changed());
         assertEquals(1, outboxRepository.findAll().stream()
                 .filter(event -> "VoteCastEvent".equals(event.getEventType())).count());
+    }
+
+    @Test
+    @DisplayName("Clicking the selected post vote direction removes the vote")
+    void repeatedUiVoteDirectionTogglesVoteOff() {
+        VoteResult selected = voteService.togglePostVote(
+                voter.getId(), post.getId(), VoteValue.UPVOTE);
+
+        assertEquals(VoteValue.UPVOTE, selected.currentVote());
+        assertEquals(1, selected.score());
+        assertEquals(VoteValue.UPVOTE,
+                voteService.getPostVote(voter.getId(), post.getId()).orElseThrow());
+
+        VoteResult removed = voteService.togglePostVote(
+                voter.getId(), post.getId(), VoteValue.UPVOTE);
+
+        assertNull(removed.currentVote());
+        assertEquals(0, removed.score());
+        assertTrue(removed.changed());
+        assertTrue(voteService.getPostVote(voter.getId(), post.getId()).isEmpty());
+        assertEquals(0, voteService.getPostScore(post.getId()));
     }
 
     private User saveUser(String username) {

@@ -8,6 +8,7 @@ import com.redditclone.shared.security.UserSession;
 import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.user.service.UserService;
 import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -41,6 +42,7 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
     private final PostCommentsView commentsView;
 
     private Post post;
+    private Long sessionUserId;
 
     public PostDetailView(PostService postService, VoteService voteService,
                           CommentService commentService, UserService userService,
@@ -62,6 +64,7 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         removeAll();
+        sessionUserId = userSession.currentUserId(event.getUI());
 
         Optional<String> postIdParam = event.getRouteParameters().get("postId");
         if (postIdParam.isEmpty()) {
@@ -139,8 +142,12 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
                 .set("color", "#1c1c1c")
                 .set("margin", "4px 0");
 
-        upvote.addClickListener(event -> castVote(true, score));
-        downvote.addClickListener(event -> castVote(false, score));
+        VoteValue existingVote = voteService.getPostVote(currentUserId(), post.getId())
+                .orElse(null);
+        styleVoteSelection(upvote, downvote, existingVote);
+
+        upvote.addClickListener(event -> castVote(true, score, upvote, downvote));
+        downvote.addClickListener(event -> castVote(false, score, upvote, downvote));
 
         voteSection.add(upvote, score, downvote);
         return voteSection;
@@ -265,7 +272,8 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
         }
     }
 
-    private void castVote(boolean upvote, Span score) {
+    private void castVote(boolean upvote, Span score,
+                          Button upvoteButton, Button downvoteButton) {
         Long voterId = currentUserId();
         if (voterId == null) {
             Notification error = Notification.show("Please log in first.");
@@ -274,16 +282,36 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
             return;
         }
         try {
-            VoteResult result = upvote
-                    ? voteService.upvotePost(voterId, post.getId())
-                    : voteService.downvotePost(voterId, post.getId());
+            VoteValue requestedVote = upvote ? VoteValue.UPVOTE : VoteValue.DOWNVOTE;
+            VoteResult result = voteService.togglePostVote(
+                    voterId, post.getId(), requestedVote);
             score.setText(String.valueOf(result.score()));
+            styleVoteSelection(upvoteButton, downvoteButton, result.currentVote());
         } catch (IllegalArgumentException | IllegalStateException failure) {
             Notification.show(failure.getMessage(), 3_000, Notification.Position.MIDDLE);
         }
     }
 
+    private void styleVoteSelection(Button upvote, Button downvote, VoteValue selection) {
+        boolean upSelected = selection == VoteValue.UPVOTE;
+        boolean downSelected = selection == VoteValue.DOWNVOTE;
+
+        upvote.getElement().setAttribute("aria-pressed", String.valueOf(upSelected));
+        downvote.getElement().setAttribute("aria-pressed", String.valueOf(downSelected));
+        upvote.getStyle()
+                .set("color", upSelected ? "#FF4500" : "#7c7c7c")
+                .set("background", upSelected ? "#FFF1EB" : "transparent")
+                .set("border-radius", "50%");
+        downvote.getStyle()
+                .set("color", downSelected ? "#7193FF" : "#7c7c7c")
+                .set("background", downSelected ? "#EEF2FF" : "transparent")
+                .set("border-radius", "50%");
+    }
+
     private Long currentUserId() {
+        if (sessionUserId != null) {
+            return sessionUserId;
+        }
         return getUI().map(userSession::currentUserId).orElse(null);
     }
 
