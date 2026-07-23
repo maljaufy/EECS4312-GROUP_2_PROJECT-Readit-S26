@@ -3,10 +3,10 @@ package com.redditclone.shared.test;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
@@ -23,8 +23,8 @@ public abstract class TestcontainersBase {
             .withExposedPorts(6379);
 
     @Container
-    protected static final ConfluentKafkaContainer KAFKA = new ConfluentKafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.9.0")
+    protected static final KafkaContainer KAFKA = new KafkaContainer(
+            DockerImageName.parse("confluentinc/cp-kafka:7.5.0")
     );
 
     @DynamicPropertySource

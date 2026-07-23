@@ -39,19 +39,19 @@ public class CommentService {
     @Transactional
     public Comment createComment(CommentDto dto, Long authorId) {
         Objects.requireNonNull(dto, "comment must not be null");
-        Objects.requireNonNull(dto.getPostId(), "postId must not be null");
+        Objects.requireNonNull(dto.postId(), "postId must not be null");
         Objects.requireNonNull(authorId, "authorId must not be null");
-        String normalizedBody = normalizeBody(dto.getBody());
+        String normalizedBody = normalizeBody(dto.body());
 
         User author = userService.findById(authorId);
-        Post post = postRepository.findById(dto.getPostId())
-                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + dto.getPostId()));
+        Post post = postRepository.findById(dto.postId())
+                .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + dto.postId()));
         Comment comment = new Comment(post, author, normalizedBody);
 
-        if (dto.getParentCommentId() != null) {
-            Comment parent = commentRepository.findById(dto.getParentCommentId())
+        if (dto.parentCommentId() != null) {
+            Comment parent = commentRepository.findById(dto.parentCommentId())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "Parent comment not found with ID: " + dto.getParentCommentId()));
+                            "Parent comment not found with ID: " + dto.parentCommentId()));
             if (!post.getId().equals(parent.getPostId())) {
                 throw new IllegalArgumentException("Parent comment belongs to a different post");
             }
@@ -68,11 +68,11 @@ public class CommentService {
         Objects.requireNonNull(dto, "comment must not be null");
         Objects.requireNonNull(author, "author must not be null");
         Objects.requireNonNull(post, "post must not be null");
-        Comment comment = new Comment(post, author, normalizeBody(dto.getBody()));
-        if (dto.getParentCommentId() != null) {
-            Comment parent = commentRepository.findById(dto.getParentCommentId())
+        Comment comment = new Comment(post, author, normalizeBody(dto.body()));
+        if (dto.parentCommentId() != null) {
+            Comment parent = commentRepository.findById(dto.parentCommentId())
                     .orElseThrow(() -> new IllegalArgumentException(
-                            "Parent comment not found with ID: " + dto.getParentCommentId()));
+                            "Parent comment not found with ID: " + dto.parentCommentId()));
             if (!post.getId().equals(parent.getPostId())) {
                 throw new IllegalArgumentException("Parent comment belongs to a different post");
             }
