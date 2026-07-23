@@ -47,7 +47,7 @@ public class User extends BaseEntity {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "users_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
-    @Column(name = "role")
+    @Column(name = "role", columnDefinition = "VARCHAR(50)")
     private Set<Role> roles = new HashSet<>();
 
     /**
