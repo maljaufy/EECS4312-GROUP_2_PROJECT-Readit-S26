@@ -10,6 +10,7 @@ public class VoteCastEvent extends DomainEvent {
     private final VoteTargetType targetType;
     private final Long targetId;
     private final Long userId;
+    private final Long authorId;
     private final String username;
     private final VoteValue currentVote;
     private final int delta;
@@ -19,16 +20,17 @@ public class VoteCastEvent extends DomainEvent {
      * Backwards-compatible constructor for a post vote event.
      */
     public VoteCastEvent(Long postId, Long userId, String username, int delta, int newScore) {
-        this(VoteTargetType.POST, postId, userId, username,
+        this(VoteTargetType.POST, postId, userId, null, username,
                 delta >= 0 ? VoteValue.UPVOTE : VoteValue.DOWNVOTE, delta, newScore);
     }
 
     public VoteCastEvent(VoteTargetType targetType, Long targetId, Long userId,
-                         String username, VoteValue currentVote, int delta, int newScore) {
+                         Long authorId, String username, VoteValue currentVote, int delta, int newScore) {
         super();
         this.targetType = targetType;
         this.targetId = targetId;
         this.userId = userId;
+        this.authorId = authorId;
         this.username = username;
         this.currentVote = currentVote;
         this.delta = delta;

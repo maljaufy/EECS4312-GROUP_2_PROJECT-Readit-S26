@@ -14,6 +14,7 @@ import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.event.VoteCastEvent;
 import com.redditclone.voting.repository.VoteRepository;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,17 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("Should create an upvote and add one karma")
+    @DisplayName("Should configure persistence entry points with Resilience4j retry")
+    void voteEntryPoint_UsesPersistenceRetry() throws NoSuchMethodException {
+        Retry retry = VoteService.class.getMethod("upvotePost", Long.class, Long.class)
+                .getAnnotation(Retry.class);
+
+        assertNotNull(retry);
+        assertEquals("votePersistence", retry.name());
+    }
+
+    @Test
+    @DisplayName("Should create an upvote and publish one karma delta")
     void upvotePost_CreatesVoteAndAddsKarma() {
         givenPostWithAuthor(10L, 2L);
         givenVoter(1L);
@@ -75,7 +86,11 @@ class VoteServiceTest {
         assertEquals(10L, voteCaptor.getValue().getTargetId());
         assertEquals(VoteValue.UPVOTE, voteCaptor.getValue().getValue());
 
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
+        ArgumentCaptor<VoteCastEvent> eventCaptor = ArgumentCaptor.forClass(VoteCastEvent.class);
+        verify(eventPublisher).publish(eventCaptor.capture());
+        assertEquals(2L, eventCaptor.getValue().getAuthorId());
+        assertEquals(1, eventCaptor.getValue().getDelta());
         assertEquals(VoteValue.UPVOTE, result.currentVote());
         assertEquals(1, result.score());
         assertEquals(1, result.karmaDelta());
@@ -96,7 +111,7 @@ class VoteServiceTest {
 
         assertEquals(VoteValue.UPVOTE, existingVote.getValue());
         verify(voteRepository).save(existingVote);
-        verify(userService).updateKarma(2L, 2);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         assertEquals(2, result.karmaDelta());
         assertTrue(result.changed());
     }
@@ -132,7 +147,7 @@ class VoteServiceTest {
         VoteResult result = voteService.removePostVote(1L, 10L);
 
         verify(voteRepository).delete(existingVote);
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         assertNull(result.currentVote());
         assertEquals(1, result.karmaDelta());
         assertTrue(result.changed());
@@ -179,11 +194,12 @@ class VoteServiceTest {
 
         assertEquals(VoteTargetType.COMMENT, result.targetType());
         assertEquals(1, comment.getVoteScore());
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         ArgumentCaptor<VoteCastEvent> eventCaptor = ArgumentCaptor.forClass(VoteCastEvent.class);
         verify(eventPublisher).publish(eventCaptor.capture());
         assertEquals(VoteTargetType.COMMENT, eventCaptor.getValue().getTargetType());
         assertEquals(20L, eventCaptor.getValue().getTargetId());
+        assertEquals(2L, eventCaptor.getValue().getAuthorId());
         verify(uiBroadcaster).broadcastVoteUpdate("COMMENT", 20L, 1);
     }
 

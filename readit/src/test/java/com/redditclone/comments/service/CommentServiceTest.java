@@ -1,11 +1,13 @@
 package com.redditclone.comments.service;
 
 import com.redditclone.comments.domain.Comment;
+import com.redditclone.comments.domain.CommentSortOption;
 import com.redditclone.comments.repository.CommentRepository;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.repository.PostRepository;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.service.UserService;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,10 +36,12 @@ class CommentServiceTest {
     private UserService userService;
 
     private CommentService commentService;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentService(commentRepository, postRepository, userService);
+        meterRegistry = new SimpleMeterRegistry();
+        commentService = new CommentService(commentRepository, postRepository, userService, meterRegistry);
     }
 
     @Test
@@ -60,6 +64,8 @@ class CommentServiceTest {
         assertEquals(1L, commentCaptor.getValue().getAuthorId());
         assertEquals("Nice post", commentCaptor.getValue().getBody());
         assertSame(savedComment, result);
+        assertEquals(1, meterRegistry.get("readit.comments.latency")
+                .tag("operation", "create").tag("outcome", "success").timer().count());
     }
 
     @Test
@@ -72,6 +78,8 @@ class CommentServiceTest {
 
         assertEquals("Comment body must not be blank", exception.getMessage());
         verifyNoInteractions(userService, postRepository, commentRepository);
+        assertEquals(1, meterRegistry.get("readit.comments.latency")
+                .tag("operation", "create").tag("outcome", "error").timer().count());
     }
 
     @Test
@@ -119,6 +127,34 @@ class CommentServiceTest {
 
         assertSame(comments, result);
         verify(commentRepository).findByPost_IdOrderByCreatedAtAsc(10L);
+    }
+
+    @Test
+    @DisplayName("Should delegate controversial ranking to the vote-aware query")
+    void findTopLevelByPost_UsesControversialRanking() {
+        Post post = postWithId(10L);
+        Comment comment = new Comment(post, userWithId(1L), "Debatable");
+        when(commentRepository.findControversialTopLevelByPostId(10L)).thenReturn(List.of(comment));
+
+        List<Comment> result = commentService.findTopLevelByPost(post, CommentSortOption.CONTROVERSIAL);
+
+        assertEquals(List.of(comment), result);
+        verify(commentRepository).findControversialTopLevelByPostId(10L);
+    }
+
+    @Test
+    @DisplayName("Should trim and execute a post-scoped full-text search")
+    void searchComments_UsesNormalizedQuery() {
+        Post post = postWithId(10L);
+        Comment comment = new Comment(post, userWithId(1L), "PostgreSQL search is useful");
+        when(commentRepository.searchByPostId(10L, "PostgreSQL search")).thenReturn(List.of(comment));
+
+        List<Comment> result = commentService.searchComments(10L, "  PostgreSQL search  ");
+
+        assertEquals(List.of(comment), result);
+        verify(commentRepository).searchByPostId(10L, "PostgreSQL search");
+        assertEquals(1, meterRegistry.get("readit.comments.latency")
+                .tag("operation", "search").tag("outcome", "success").timer().count());
     }
 
     private Post postWithId(Long id) {

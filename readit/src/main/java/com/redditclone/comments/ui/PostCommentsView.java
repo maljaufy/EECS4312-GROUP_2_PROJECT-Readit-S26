@@ -1,6 +1,7 @@
 package com.redditclone.comments.ui;
 
 import com.redditclone.comments.domain.Comment;
+import com.redditclone.comments.domain.CommentSortOption;
 import com.redditclone.comments.dto.CommentDto;
 import com.redditclone.comments.service.CommentService;
 import com.redditclone.posts.domain.Post;
@@ -16,7 +17,9 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
@@ -46,6 +49,8 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
     private VerticalLayout commentsContainer;
     private Post post;
+    private final Select<CommentSortOption> sortSelect = new Select<>();
+    private final TextField searchField = new TextField();
 
     public PostCommentsView(PostService postService,
                             CommentService commentService,
@@ -107,6 +112,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
         add(buildNewCommentForm());
         add(new H3("Comments"));
+        add(buildCommentControls());
 
         commentsContainer = new VerticalLayout();
         commentsContainer.setPadding(false);
@@ -115,6 +121,36 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
         add(commentsContainer);
 
         loadTopLevelComments();
+    }
+
+    private HorizontalLayout buildCommentControls() {
+        sortSelect.setLabel("Sort by");
+        sortSelect.setItems(CommentSortOption.values());
+        sortSelect.setItemLabelGenerator(CommentSortOption::getLabel);
+        sortSelect.setValue(CommentSortOption.BEST);
+        sortSelect.addValueChangeListener(event -> {
+            if (event.isFromClient() && searchField.isEmpty()) {
+                loadTopLevelComments();
+            }
+        });
+
+        searchField.setLabel("Search this post's comments");
+        searchField.setPlaceholder("Words or a quoted phrase");
+        searchField.setClearButtonVisible(true);
+        searchField.addValueChangeListener(event -> {
+            if (event.isFromClient() && searchField.isEmpty()) {
+                loadTopLevelComments();
+            }
+        });
+
+        Button search = new Button("Search", event -> loadTopLevelComments());
+        search.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        HorizontalLayout controls = new HorizontalLayout(sortSelect, searchField, search);
+        controls.setAlignItems(Alignment.END);
+        controls.setWidthFull();
+        controls.setFlexGrow(1, searchField);
+        return controls;
     }
 
     private VerticalLayout buildNewCommentForm() {
@@ -160,7 +196,16 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
     private void loadTopLevelComments() {
         commentsContainer.removeAll();
-        List<Comment> topLevel = commentService.findTopLevelByPost(post);
+        List<Comment> topLevel;
+        try {
+            topLevel = searchField.isEmpty()
+                    ? commentService.findTopLevelByPost(post, sortSelect.getValue())
+                    : commentService.searchComments(post.getId(), searchField.getValue());
+        } catch (IllegalArgumentException exception) {
+            Notification error = Notification.show(exception.getMessage());
+            error.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            return;
+        }
 
         if (topLevel.isEmpty()) {
             commentsContainer.add(new Paragraph("No comments yet. Be the first to reply."));
