@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,6 +33,13 @@ public class UserContextIntegrationTest extends TestcontainersBase {
     private PasswordEncoder passwordEncoder;
 
     private User testUser;
+
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
+            .withDatabaseName("testdb")
+            .withUsername("user")
+            .withPassword("password")
+            .withInitScript("init.sql");  // Add this
 
     @BeforeEach
     void setUp() {
