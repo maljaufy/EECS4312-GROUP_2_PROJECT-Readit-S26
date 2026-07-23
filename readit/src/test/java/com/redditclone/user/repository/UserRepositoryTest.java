@@ -103,21 +103,19 @@ public class UserRepositoryTest {
         assertFalse(exists);
     }
 
-    // TODO: Uncomment when Post entity is implemented
-    // @Test
-    // @DisplayName("Should correctly count posts for a user")
-    // void countPostsByUserId_ReturnsCorrectCount() {
-    //     long count = userRepository.countPostsByUserId(savedUser.getId());
-    //     assertEquals(0, count);
-    // }
+    @Test
+    @DisplayName("Should correctly count posts for a user")
+    void countPostsByUserId_ReturnsCorrectCount() {
+        long count = userRepository.countPostsByUserId(savedUser.getId());
+        assertEquals(0, count);
+    }
 
-    // TODO: Uncomment when Comment entity is implemented
-    // @Test
-    // @DisplayName("Should correctly count comments for a user")
-    // void countCommentsByUserId_ReturnsCorrectCount() {
-    //     long count = userRepository.countCommentsByUserId(savedUser.getId());
-    //     assertEquals(0, count);
-    // }
+    @Test
+    @DisplayName("Should correctly count comments for a user")
+    void countCommentsByUserId_ReturnsCorrectCount() {
+        long count = userRepository.countCommentsByUserId(savedUser.getId());
+        assertEquals(0, count);
+    }
 
     @Test
     @DisplayName("Should find karma by user ID")

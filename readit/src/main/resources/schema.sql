@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS outbox_event CASCADE;
+DROP TABLE IF EXISTS processed_events CASCADE;
 DROP TABLE IF EXISTS subreddits CASCADE;
 DROP TABLE IF EXISTS users_roles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
@@ -62,6 +63,18 @@ CREATE TABLE outbox_event (
 
 CREATE INDEX idx_outbox_event_status ON outbox_event(status);
 CREATE INDEX idx_outbox_event_created_at ON outbox_event(created_at);
+
+-- Idempotency ledger shared by event handlers.  The unique key makes the
+-- reservation atomic even when Kafka redelivers concurrently.
+CREATE TABLE processed_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_id VARCHAR(255) NOT NULL,
+    handler_name VARCHAR(255) NOT NULL,
+    processed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_processed_event_handler UNIQUE (event_id, handler_name)
+);
+
+CREATE INDEX idx_processed_events_processed_at ON processed_events(processed_at);
 
 -- Subreddits table
 CREATE TABLE subreddits (
@@ -126,6 +139,8 @@ CREATE TABLE comments (
 
 CREATE INDEX idx_comments_post_created ON comments(post_id, created_at);
 CREATE INDEX idx_comments_author ON comments(author_id);
+CREATE INDEX idx_comments_body_search ON comments
+    USING GIN (to_tsvector('english', COALESCE(body, '')));
 
 -- Votes table
 CREATE TABLE votes (

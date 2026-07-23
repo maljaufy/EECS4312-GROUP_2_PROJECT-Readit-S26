@@ -1,8 +1,6 @@
 package com.redditclone.user.ui;
 
-import com.redditclone.shared.security.JwtUtil;
-import com.redditclone.user.domain.User;
-import com.redditclone.user.service.UserService;
+import com.redditclone.shared.security.AuthenticationSessionService;
 import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -21,11 +19,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.router.RouterLink;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 @Route("")
 @RouteAlias("login")
@@ -40,13 +34,7 @@ public class LoginView extends Composite<VerticalLayout>{
     private final PasswordField password = new PasswordField("Password");
 
     @Autowired
-    private AuthenticationManager authenticationManager;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    @Autowired
-    private UserService userService;
+    private AuthenticationSessionService authenticationSessionService;
 
     public LoginView() {
         getContent().setSizeFull();
@@ -132,23 +120,8 @@ public class LoginView extends Composite<VerticalLayout>{
         }
 
         try {
-            Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(user, pass)
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(auth);
-
-            // Generate JWT token
-            String token = jwtUtil.generateToken(
-                    (org.springframework.security.core.userdetails.User) auth.getPrincipal()
-            );
-
-            // Store token in Vaadin session
-            User loggedInUser = userService.findByUsername(user); // fetch the real entity once, right here
             getUI().ifPresent(ui -> {
-                ui.getSession().setAttribute("jwt", token);
-                ui.getSession().setAttribute("username", user);
-                ui.getSession().setAttribute("userId", loggedInUser.getId()); // <-- new
+                authenticationSessionService.signIn(ui, user, pass);
                 ui.navigate("feed");
             });
             Notification.show("Welcome back, " + user + "!", 3000, Notification.Position.MIDDLE);

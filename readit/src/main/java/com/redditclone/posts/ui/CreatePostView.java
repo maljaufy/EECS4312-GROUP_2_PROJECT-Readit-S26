@@ -2,6 +2,7 @@ package com.redditclone.posts.ui;
 
 import com.redditclone.posts.dto.PostDto;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
 import com.redditclone.user.domain.User;
@@ -25,7 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
-@Route("create-post")
+@Route(value = "create-post", layout = MainLayout.class)
 @PageTitle("Create Post | Reddit Clone")
 public class CreatePostView extends VerticalLayout {
 

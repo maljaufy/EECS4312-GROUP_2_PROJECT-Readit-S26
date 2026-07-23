@@ -1,5 +1,7 @@
 package com.redditclone.user.ui;
 
+import com.redditclone.shared.security.UserSession;
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.user.domain.NotificationPreference;
 import com.redditclone.user.dto.NotificationPreferenceDto;
 import com.redditclone.user.service.UserService;
@@ -17,15 +19,14 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.annotation.UIScope;
-import org.springframework.beans.factory.annotation.Autowired;
 
-@Route("settings/notifications")
+@Route(value = "settings/notifications", layout = MainLayout.class)
 @PageTitle("Notification Preferences | Reddit Clone")
 @UIScope
 public class NotificationPreferencesView extends VerticalLayout implements BeforeEnterObserver {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final UserSession userSession;
 
     private NotificationPreferenceDto currentPreferences;
     private Long currentUserId;
@@ -40,7 +41,10 @@ public class NotificationPreferencesView extends VerticalLayout implements Befor
 
     private final Button saveButton = new Button("Save Preferences");
 
-    public NotificationPreferencesView() {
+    public NotificationPreferencesView(UserService userService, UserSession userSession) {
+        this.userService = userService;
+        this.userSession = userSession;
+
         setSizeFull();
         setAlignItems(Alignment.CENTER);
 
@@ -77,10 +81,15 @@ public class NotificationPreferencesView extends VerticalLayout implements Befor
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         try {
-            currentUserId = userService.getCurrentUser().getId();
+            currentUserId = userSession.currentUserId(event.getUI());
+            if (currentUserId == null) {
+                event.forwardTo(LoginView.class);
+                return;
+            }
+            userService.findById(currentUserId);
             loadPreferences();
             populateForm();
-        } catch (IllegalStateException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             // Not logged in – redirect to login
             event.forwardTo(LoginView.class);
         }

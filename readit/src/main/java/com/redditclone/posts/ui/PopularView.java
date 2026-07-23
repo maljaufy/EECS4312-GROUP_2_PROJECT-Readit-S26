@@ -1,5 +1,6 @@
 package com.redditclone.posts.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.service.PostService;
 import com.redditclone.subreddit.domain.Subreddit;
@@ -20,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@Route("popular")
+@Route(value = "popular", layout = MainLayout.class)
 @PageTitle("Popular | Reddit Clone")
 public class PopularView extends VerticalLayout {
 

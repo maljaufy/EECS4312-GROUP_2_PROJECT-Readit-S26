@@ -1,8 +1,14 @@
 package com.redditclone.posts.ui;
 
+import com.redditclone.comments.service.CommentService;
+import com.redditclone.comments.ui.PostCommentsView;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.security.UserSession;
+import com.redditclone.shared.ui.MainLayout;
+import com.redditclone.user.service.UserService;
 import com.redditclone.voting.dto.VoteResult;
+import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -23,7 +29,7 @@ import com.vaadin.flow.router.Route;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-@Route("post/:postId")
+@Route(value = "post/:postId", layout = MainLayout.class)
 @PageTitle("Post | Reddit Clone")
 public class PostDetailView extends VerticalLayout implements BeforeEnterObserver {
 
@@ -32,12 +38,20 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
 
     private final PostService postService;
     private final VoteService voteService;
+    private final UserSession userSession;
+    private final PostCommentsView commentsView;
 
     private Post post;
+    private Long sessionUserId;
 
-    public PostDetailView(PostService postService, VoteService voteService) {
+    public PostDetailView(PostService postService, VoteService voteService,
+                          CommentService commentService, UserService userService,
+                          UserSession userSession) {
         this.postService = postService;
         this.voteService = voteService;
+        this.userSession = userSession;
+        this.commentsView = new PostCommentsView(
+                commentService, userService, voteService);
 
         setSizeFull();
         setPadding(true);
@@ -50,6 +64,7 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         removeAll();
+        sessionUserId = userSession.currentUserId(event.getUI());
 
         Optional<String> postIdParam = event.getRouteParameters().get("postId");
         if (postIdParam.isEmpty()) {
@@ -72,7 +87,18 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
             return;
         }
 
-        add(buildCard());
+        commentsView.showForPost(post);
+        add(buildBackButton(), buildCard(), commentsView);
+    }
+
+    private Button buildBackButton() {
+        Button back = new Button("← Back to feed",
+                event -> getUI().ifPresent(ui -> ui.navigate("feed")));
+        back.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        back.getStyle()
+                .set("align-self", "flex-start")
+                .set("font-weight", "600");
+        return back;
     }
 
     private Div buildCard() {
@@ -116,8 +142,12 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
                 .set("color", "#1c1c1c")
                 .set("margin", "4px 0");
 
-        upvote.addClickListener(event -> castVote(true, score));
-        downvote.addClickListener(event -> castVote(false, score));
+        VoteValue existingVote = voteService.getPostVote(currentUserId(), post.getId())
+                .orElse(null);
+        styleVoteSelection(upvote, downvote, existingVote);
+
+        upvote.addClickListener(event -> castVote(true, score, upvote, downvote));
+        downvote.addClickListener(event -> castVote(false, score, upvote, downvote));
 
         voteSection.add(upvote, score, downvote);
         return voteSection;
@@ -168,8 +198,8 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
 
     private HorizontalLayout buildActions() {
         Button comments = actionButton("\uD83D\uDCAC Comments");
-        comments.addClickListener(event ->
-                getUI().ifPresent(ui -> ui.navigate("post/" + post.getId() + "/comments")));
+        comments.addClickListener(event -> commentsView.getElement().executeJs(
+                "this.scrollIntoView({ behavior: 'smooth', block: 'start' })"));
 
         Button backToFeed = actionButton("\u2190 Back to feed");
         backToFeed.addClickListener(event -> getUI().ifPresent(ui -> ui.navigate("feed")));
@@ -242,7 +272,8 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
         }
     }
 
-    private void castVote(boolean upvote, Span score) {
+    private void castVote(boolean upvote, Span score,
+                          Button upvoteButton, Button downvoteButton) {
         Long voterId = currentUserId();
         if (voterId == null) {
             Notification error = Notification.show("Please log in first.");
@@ -251,19 +282,37 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
             return;
         }
         try {
-            VoteResult result = upvote
-                    ? voteService.upvotePost(voterId, post.getId())
-                    : voteService.downvotePost(voterId, post.getId());
+            VoteValue requestedVote = upvote ? VoteValue.UPVOTE : VoteValue.DOWNVOTE;
+            VoteResult result = voteService.togglePostVote(
+                    voterId, post.getId(), requestedVote);
             score.setText(String.valueOf(result.score()));
+            styleVoteSelection(upvoteButton, downvoteButton, result.currentVote());
         } catch (IllegalArgumentException | IllegalStateException failure) {
             Notification.show(failure.getMessage(), 3_000, Notification.Position.MIDDLE);
         }
     }
 
+    private void styleVoteSelection(Button upvote, Button downvote, VoteValue selection) {
+        boolean upSelected = selection == VoteValue.UPVOTE;
+        boolean downSelected = selection == VoteValue.DOWNVOTE;
+
+        upvote.getElement().setAttribute("aria-pressed", String.valueOf(upSelected));
+        downvote.getElement().setAttribute("aria-pressed", String.valueOf(downSelected));
+        upvote.getStyle()
+                .set("color", upSelected ? "#FF4500" : "#7c7c7c")
+                .set("background", upSelected ? "#FFF1EB" : "transparent")
+                .set("border-radius", "50%");
+        downvote.getStyle()
+                .set("color", downSelected ? "#7193FF" : "#7c7c7c")
+                .set("background", downSelected ? "#EEF2FF" : "transparent")
+                .set("border-radius", "50%");
+    }
+
     private Long currentUserId() {
-        return (Long) getUI()
-                .map(ui -> ui.getSession().getAttribute("userId"))
-                .orElse(null);
+        if (sessionUserId != null) {
+            return sessionUserId;
+        }
+        return getUI().map(userSession::currentUserId).orElse(null);
     }
 
     private void showNotFound() {

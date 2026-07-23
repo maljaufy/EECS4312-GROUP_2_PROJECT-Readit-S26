@@ -7,8 +7,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "processed_event", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"event_id", "handler_name"})
+@Table(name = "processed_events", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_processed_event_handler", columnNames = {"event_id", "handler_name"})
 })
 @Getter
 @Setter
@@ -26,4 +26,12 @@ public class ProcessedEvent {
 
     @Column(nullable = false)
     private LocalDateTime processedAt = LocalDateTime.now();
+
+    public ProcessedEvent() {
+    }
+
+    public ProcessedEvent(String eventId, String handlerName) {
+        this.eventId = eventId;
+        this.handlerName = handlerName;
+    }
 }

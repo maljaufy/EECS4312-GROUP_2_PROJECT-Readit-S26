@@ -11,4 +11,5 @@ public interface ProcessedEventRepository extends JpaRepository<ProcessedEvent, 
 
     Optional<ProcessedEvent> findByEventIdAndHandlerName(String eventId, String handlerName);
     boolean existsByEventIdAndHandlerName(String eventId, String handlerName);
+    long countByEventIdAndHandlerName(String eventId, String handlerName);
 }

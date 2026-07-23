@@ -14,7 +14,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
@@ -44,13 +43,10 @@ public class SecurityConfigTest {
     }
 
     @Test
-    @DisplayName("Protected endpoints should be denied without authentication")
-    void protectedEndpoints_ShouldDenyAnonymous() throws Exception {
-        // This stateless security configuration responds with 403 rather than redirecting.
-        mockMvc.perform(get("/feed"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(get("/profile"))
-                .andExpect(status().isForbidden());
+    @DisplayName("UI routes should reach Vaadin so it can redirect anonymous users to login")
+    void uiRoutes_ShouldReachVaadinForAnonymousUsers() {
+        assertVaadinHandoff("/feed");
+        assertVaadinHandoff("/profile");
     }
 
     @Test

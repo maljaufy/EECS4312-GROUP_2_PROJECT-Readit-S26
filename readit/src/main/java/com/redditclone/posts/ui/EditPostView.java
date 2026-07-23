@@ -2,6 +2,7 @@ package com.redditclone.posts.ui;
 
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.ui.MainLayout;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H2;
@@ -19,7 +20,7 @@ import com.vaadin.flow.router.Route;
 
 import java.util.Optional;
 
-@Route("post/:postId/edit")
+@Route(value = "post/:postId/edit", layout = MainLayout.class)
 @PageTitle("Edit Post | Reddit Clone")
 public class EditPostView extends VerticalLayout implements BeforeEnterObserver {
 

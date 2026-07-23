@@ -14,6 +14,7 @@ import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.event.VoteCastEvent;
 import com.redditclone.voting.repository.VoteRepository;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 public class VoteService {
@@ -49,16 +51,19 @@ public class VoteService {
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult upvotePost(Long voterId, Long postId) {
         return voteOnPost(voterId, postId, VoteValue.UPVOTE);
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult downvotePost(Long voterId, Long postId) {
         return voteOnPost(voterId, postId, VoteValue.DOWNVOTE);
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult voteOnPost(Long voterId, Long postId, VoteValue value) {
         Post post = requirePostVoteInput(voterId, postId, value);
         return vote(voterId, VoteTargetType.POST, postId, post.getAuthor().getId(), value,
@@ -66,10 +71,28 @@ public class VoteService {
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult removePostVote(Long voterId, Long postId) {
         Post post = requirePostVoteInput(voterId, postId, VoteValue.UPVOTE);
         return removeVote(voterId, VoteTargetType.POST, postId, post.getAuthor().getId(),
                 score -> post.setVoteScore(score));
+    }
+
+    /**
+     * Applies Reddit-style button behavior: selecting the active direction
+     * removes the vote; selecting the other direction switches it.
+     */
+    @Transactional
+    @Retry(name = "votePersistence")
+    public VoteResult togglePostVote(Long voterId, Long postId, VoteValue value) {
+        Objects.requireNonNull(voterId, "voterId must not be null");
+        Objects.requireNonNull(postId, "postId must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+
+        Optional<VoteValue> currentVote = getPostVote(voterId, postId);
+        return currentVote.filter(value::equals).isPresent()
+                ? removePostVote(voterId, postId)
+                : voteOnPost(voterId, postId, value);
     }
 
     @Transactional(readOnly = true)
@@ -77,17 +100,30 @@ public class VoteService {
         return getScore(VoteTargetType.POST, postId);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<VoteValue> getPostVote(Long voterId, Long postId) {
+        if (voterId == null || postId == null) {
+            return Optional.empty();
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(
+                        voterId, VoteTargetType.POST, postId)
+                .map(Vote::getValue);
+    }
+
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult upvoteComment(Long voterId, Long commentId) {
         return voteOnComment(voterId, commentId, VoteValue.UPVOTE);
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult downvoteComment(Long voterId, Long commentId) {
         return voteOnComment(voterId, commentId, VoteValue.DOWNVOTE);
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult voteOnComment(Long voterId, Long commentId, VoteValue value) {
         Comment comment = requireCommentVoteInput(voterId, commentId, value);
         return vote(voterId, VoteTargetType.COMMENT, commentId, comment.getAuthor().getId(), value,
@@ -95,6 +131,7 @@ public class VoteService {
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public VoteResult removeCommentVote(Long voterId, Long commentId) {
         Comment comment = requireCommentVoteInput(voterId, commentId, VoteValue.UPVOTE);
         return removeVote(voterId, VoteTargetType.COMMENT, commentId, comment.getAuthor().getId(),
@@ -116,20 +153,22 @@ public class VoteService {
             return result(targetType, targetId, value, 0, false);
         }
 
-        int karmaDelta = value.getKarmaDelta();
+        boolean selfVote = voterId.equals(authorId);
+        int karmaDelta = selfVote ? 0 : value.getKarmaDelta();
         if (existingVote == null) {
             voteRepository.save(new Vote(voterId, targetType, targetId, value));
         } else {
-            karmaDelta -= existingVote.getValue().getKarmaDelta();
+            if (!selfVote) {
+                karmaDelta -= existingVote.getValue().getKarmaDelta();
+            }
             existingVote.setValue(value);
             voteRepository.save(existingVote);
         }
 
         int score = getScore(targetType, targetId);
         scoreUpdater.update(score);
-        userService.updateKarma(authorId, karmaDelta);
         VoteResult result = new VoteResult(targetType, targetId, value, score, karmaDelta, true);
-        publishVoteChange(voter, result);
+        publishVoteChange(voter, authorId, result);
         return result;
     }
 
@@ -142,13 +181,14 @@ public class VoteService {
             return result(targetType, targetId, null, 0, false);
         }
 
-        int karmaDelta = -existingVote.getValue().getKarmaDelta();
+        int karmaDelta = voterId.equals(authorId)
+                ? 0
+                : -existingVote.getValue().getKarmaDelta();
         voteRepository.delete(existingVote);
         int score = getScore(targetType, targetId);
         scoreUpdater.update(score);
-        userService.updateKarma(authorId, karmaDelta);
         VoteResult result = new VoteResult(targetType, targetId, null, score, karmaDelta, true);
-        publishVoteChange(voter, result);
+        publishVoteChange(voter, authorId, result);
         return result;
     }
 
@@ -176,12 +216,6 @@ public class VoteService {
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("Post not found with ID: " + postId));
-        Long postAuthorId = post.getAuthor().getId();
-
-        if (voterId.equals(postAuthorId)) {
-            throw new IllegalArgumentException("Users cannot vote on their own posts");
-        }
-
         userService.findById(voterId);
         return post;
     }
@@ -196,13 +230,12 @@ public class VoteService {
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new IllegalArgumentException("Comment not found with ID: " + commentId));
-        if (voterId.equals(comment.getAuthor().getId())) {
-            throw new IllegalArgumentException("Users cannot vote on their own comments");
-        }
+        userService.findById(voterId);
         return comment;
     }
 
     @Transactional
+    @Retry(name = "votePersistence")
     public void castVote(Long userId, Long postId, int delta) {
         if (delta == 0) {
             throw new IllegalArgumentException("Vote delta must not be zero");
@@ -210,10 +243,10 @@ public class VoteService {
         voteOnPost(userId, postId, delta > 0 ? VoteValue.UPVOTE : VoteValue.DOWNVOTE);
     }
 
-    private void publishVoteChange(User voter, VoteResult result) {
+    private void publishVoteChange(User voter, Long authorId, VoteResult result) {
         if (eventPublisher != null) {
             eventPublisher.publish(new VoteCastEvent(
-                    result.targetType(), result.targetId(), voter.getId(), voter.getUsername(),
+                    result.targetType(), result.targetId(), voter.getId(), authorId, voter.getUsername(),
                     result.currentVote(), result.karmaDelta(), result.score()));
         }
         if (uiBroadcaster == null) {

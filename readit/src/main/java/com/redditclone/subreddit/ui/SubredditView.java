@@ -1,5 +1,6 @@
 package com.redditclone.subreddit.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.service.PostService;
 import com.redditclone.subreddit.domain.Subreddit;
@@ -21,7 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-@Route("subreddit")
+@Route(value = "subreddit", layout = MainLayout.class)
 @PageTitle("Subreddit | Reddit Clone")
 public class SubredditView extends VerticalLayout implements HasUrlParameter<Long> {
 

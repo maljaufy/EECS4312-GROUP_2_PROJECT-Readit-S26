@@ -14,6 +14,7 @@ import com.redditclone.voting.domain.VoteValue;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.event.VoteCastEvent;
 import com.redditclone.voting.repository.VoteRepository;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,17 @@ class VoteServiceTest {
     }
 
     @Test
-    @DisplayName("Should create an upvote and add one karma")
+    @DisplayName("Should configure persistence entry points with Resilience4j retry")
+    void voteEntryPoint_UsesPersistenceRetry() throws NoSuchMethodException {
+        Retry retry = VoteService.class.getMethod("upvotePost", Long.class, Long.class)
+                .getAnnotation(Retry.class);
+
+        assertNotNull(retry);
+        assertEquals("votePersistence", retry.name());
+    }
+
+    @Test
+    @DisplayName("Should create an upvote and publish one karma delta")
     void upvotePost_CreatesVoteAndAddsKarma() {
         givenPostWithAuthor(10L, 2L);
         givenVoter(1L);
@@ -75,7 +86,11 @@ class VoteServiceTest {
         assertEquals(10L, voteCaptor.getValue().getTargetId());
         assertEquals(VoteValue.UPVOTE, voteCaptor.getValue().getValue());
 
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
+        ArgumentCaptor<VoteCastEvent> eventCaptor = ArgumentCaptor.forClass(VoteCastEvent.class);
+        verify(eventPublisher).publish(eventCaptor.capture());
+        assertEquals(2L, eventCaptor.getValue().getAuthorId());
+        assertEquals(1, eventCaptor.getValue().getDelta());
         assertEquals(VoteValue.UPVOTE, result.currentVote());
         assertEquals(1, result.score());
         assertEquals(1, result.karmaDelta());
@@ -96,7 +111,7 @@ class VoteServiceTest {
 
         assertEquals(VoteValue.UPVOTE, existingVote.getValue());
         verify(voteRepository).save(existingVote);
-        verify(userService).updateKarma(2L, 2);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         assertEquals(2, result.karmaDelta());
         assertTrue(result.changed());
     }
@@ -120,6 +135,37 @@ class VoteServiceTest {
     }
 
     @Test
+    @DisplayName("Should return the current post vote for UI selection state")
+    void getPostVote_ReturnsCurrentSelection() {
+        Vote existingVote = new Vote(1L, VoteTargetType.POST, 10L, VoteValue.UPVOTE);
+        when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
+                .thenReturn(Optional.of(existingVote));
+
+        Optional<VoteValue> result = voteService.getPostVote(1L, 10L);
+
+        assertEquals(Optional.of(VoteValue.UPVOTE), result);
+    }
+
+    @Test
+    @DisplayName("Should remove an active vote when its UI button is clicked again")
+    void togglePostVote_RemovesMatchingVote() {
+        givenPostWithAuthor(10L, 2L);
+        givenVoter(1L);
+        Vote existingVote = new Vote(1L, VoteTargetType.POST, 10L, VoteValue.UPVOTE);
+        when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
+                .thenReturn(Optional.of(existingVote));
+        when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(0);
+
+        VoteResult result = voteService.togglePostVote(1L, 10L, VoteValue.UPVOTE);
+
+        verify(voteRepository).delete(existingVote);
+        assertNull(result.currentVote());
+        assertEquals(0, result.score());
+        assertEquals(-1, result.karmaDelta());
+        assertTrue(result.changed());
+    }
+
+    @Test
     @DisplayName("Should remove existing vote and reverse karma")
     void removePostVote_RemovesVoteAndReversesKarma() {
         givenPostWithAuthor(10L, 2L);
@@ -132,24 +178,27 @@ class VoteServiceTest {
         VoteResult result = voteService.removePostVote(1L, 10L);
 
         verify(voteRepository).delete(existingVote);
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         assertNull(result.currentVote());
         assertEquals(1, result.karmaDelta());
         assertTrue(result.changed());
     }
 
     @Test
-    @DisplayName("Should reject votes on own posts")
-    void voteOnPost_RejectsSelfVote() {
+    @DisplayName("Should count a self-vote without awarding self-karma")
+    void voteOnPost_AllowsSelfVoteWithoutKarma() {
         givenPostWithAuthor(10L, 1L);
+        givenVoter(1L);
+        when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.POST, 10L))
+                .thenReturn(Optional.empty());
+        when(voteRepository.calculateScore(VoteTargetType.POST, 10L)).thenReturn(-1);
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> voteService.downvotePost(1L, 10L)
-        );
+        VoteResult result = voteService.downvotePost(1L, 10L);
 
-        assertEquals("Users cannot vote on their own posts", exception.getMessage());
-        verifyNoInteractions(voteRepository, userService);
+        assertEquals(VoteValue.DOWNVOTE, result.currentVote());
+        assertEquals(-1, result.score());
+        assertEquals(0, result.karmaDelta());
+        verify(voteRepository).save(any(Vote.class));
     }
 
     @Test
@@ -179,26 +228,30 @@ class VoteServiceTest {
 
         assertEquals(VoteTargetType.COMMENT, result.targetType());
         assertEquals(1, comment.getVoteScore());
-        verify(userService).updateKarma(2L, 1);
+        verify(userService, never()).updateKarma(anyLong(), anyInt());
         ArgumentCaptor<VoteCastEvent> eventCaptor = ArgumentCaptor.forClass(VoteCastEvent.class);
         verify(eventPublisher).publish(eventCaptor.capture());
         assertEquals(VoteTargetType.COMMENT, eventCaptor.getValue().getTargetType());
         assertEquals(20L, eventCaptor.getValue().getTargetId());
+        assertEquals(2L, eventCaptor.getValue().getAuthorId());
         verify(uiBroadcaster).broadcastVoteUpdate("COMMENT", 20L, 1);
     }
 
     @Test
-    @DisplayName("Should reject votes on a user's own comment")
-    void voteOnComment_RejectsSelfVote() {
-        givenCommentWithAuthor(20L, 1L);
+    @DisplayName("Should count a comment self-vote without awarding self-karma")
+    void voteOnComment_AllowsSelfVoteWithoutKarma() {
+        Comment comment = givenCommentWithAuthor(20L, 1L);
+        givenVoter(1L);
+        when(voteRepository.findByVoterIdAndTargetTypeAndTargetId(1L, VoteTargetType.COMMENT, 20L))
+                .thenReturn(Optional.empty());
+        when(voteRepository.calculateScore(VoteTargetType.COMMENT, 20L)).thenReturn(-1);
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> voteService.downvoteComment(1L, 20L)
-        );
+        VoteResult result = voteService.downvoteComment(1L, 20L);
 
-        assertEquals("Users cannot vote on their own comments", exception.getMessage());
-        verifyNoInteractions(voteRepository, userService, eventPublisher, uiBroadcaster);
+        assertEquals(VoteValue.DOWNVOTE, result.currentVote());
+        assertEquals(-1, comment.getVoteScore());
+        assertEquals(0, result.karmaDelta());
+        verify(voteRepository).save(any(Vote.class));
     }
 
     private void givenPostWithAuthor(Long postId, Long authorId) {

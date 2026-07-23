@@ -35,8 +35,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/register", "/login").permitAll()
-                        .requestMatchers("/feed", "/profile/**").authenticated()
+                        .requestMatchers(
+                                "/", "/register", "/login", "/error",
+                                "/VAADIN/**", "/vaadin/**", "/frontend/**", "/webjars/**",
+                                "/images/**", "/icons/**", "/manifest.webmanifest",
+                                "/sw.js", "/offline.html", "/favicon.ico", "/favicon.png"
+                        ).permitAll()
+                        // Vaadin view routes are allowed through to the router. MainLayout
+                        // redirects visitors with no UI session to the login view, instead
+                        // of Spring Security returning a Whitelabel 403 response first.
                         .anyRequest().permitAll()
                 )
                 .authenticationProvider(authenticationProvider())

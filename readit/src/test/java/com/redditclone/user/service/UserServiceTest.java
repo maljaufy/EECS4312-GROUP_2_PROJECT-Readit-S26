@@ -175,10 +175,8 @@ public class UserServiceTest {
     void getUserProfile_ReturnsProfile_WhenUserExists() {
         // Arrange
         when(userRepository.findByUsername("marwan")).thenReturn(Optional.of(mockUser));
-        // TODO: Uncomment when Post entity is implemented
-        // when(userRepository.countPostsByUserId(1L)).thenReturn(5L);
-        // TODO: Uncomment when Comment entity is implemented
-        // when(userRepository.countCommentsByUserId(1L)).thenReturn(10L);
+        when(userRepository.countPostsByUserId(1L)).thenReturn(5L);
+        when(userRepository.countCommentsByUserId(1L)).thenReturn(10L);
 
         // Act
         var profile = userService.getUserProfile("marwan");
@@ -187,10 +185,8 @@ public class UserServiceTest {
         assertNotNull(profile);
         assertEquals("marwan", profile.getUsername());
         assertEquals(0, profile.getKarma());
-        // TODO: Update to 5 when Post entity is implemented
-        assertEquals(0, profile.getPostCount());
-        // TODO: Update to 10 when Comment entity is implemented
-        assertEquals(0, profile.getCommentCount());
+        assertEquals(5, profile.getPostCount());
+        assertEquals(10, profile.getCommentCount());
     }
 
     // ==================== AVAILABILITY TESTS ====================
