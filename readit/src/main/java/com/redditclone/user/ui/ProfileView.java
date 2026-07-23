@@ -212,6 +212,10 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         backToFeed.getStyle().set("color", "#F5DEB3");
         mainContainer.add(backToFeed);
 
+        RouterLink preferencesLink = new RouterLink("Notification Preferences", NotificationPreferencesView.class);
+        preferencesLink.getStyle().set("color", "#F5DEB3");
+        mainContainer.add(preferencesLink);
+
         getContent().add(mainContainer);
     }
 

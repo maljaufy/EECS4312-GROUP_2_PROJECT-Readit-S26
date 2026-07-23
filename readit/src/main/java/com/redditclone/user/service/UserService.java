@@ -1,10 +1,12 @@
 package com.redditclone.user.service;
 
 import com.redditclone.shared.event.EventPublisher;
+import com.redditclone.user.domain.NotificationPreference;
 import com.redditclone.user.domain.Role;
 import com.redditclone.user.domain.User;
 import com.redditclone.user.dto.UserProfileDto;
 import com.redditclone.user.event.UserRegisteredEvent;
+import com.redditclone.user.repository.NotificationPreferenceRepository;
 import com.redditclone.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final EventPublisher eventPublisher;
+    private final NotificationPreferenceRepository notificationPreferenceRepository;
 
     /**
      * Registers a new user.
@@ -269,6 +272,52 @@ public class UserService {
             recalculateKarma(user.getId());
         }
         log.info("Recalculated karma for {} users", allUsers.size());
+    }
+
+    /**
+     * Gets notification preferences for a user.
+     * Creates default preferences if none exist.
+     */
+    @Transactional
+    public NotificationPreference getNotificationPreferences(Long userId) {
+        User user = findById(userId);
+        return notificationPreferenceRepository.findByUser(user)
+                .orElseGet(() -> createDefaultPreferences(user));
+    }
+
+    /**
+     * Updates notification preferences for a user.
+     */
+    @Transactional
+    public NotificationPreference updateNotificationPreferences(
+            Long userId,
+            boolean emailEnabled,
+            boolean pushEnabled,
+            boolean replyNotifications,
+            boolean mentionNotifications,
+            boolean voteNotifications,
+            boolean moderationNotifications,
+            String emailFrequency
+    ) {
+        User user = findById(userId);
+        NotificationPreference prefs = notificationPreferenceRepository.findByUser(user)
+                .orElseGet(() -> createDefaultPreferences(user));
+
+        prefs.setEmailEnabled(emailEnabled);
+        prefs.setPushEnabled(pushEnabled);
+        prefs.setReplyNotifications(replyNotifications);
+        prefs.setMentionNotifications(mentionNotifications);
+        prefs.setVoteNotifications(voteNotifications);
+        prefs.setModerationNotifications(moderationNotifications);
+        prefs.setEmailFrequency(emailFrequency);
+
+        return notificationPreferenceRepository.save(prefs);
+    }
+
+    private NotificationPreference createDefaultPreferences(User user) {
+        NotificationPreference prefs = new NotificationPreference();
+        prefs.setUser(user);
+        return notificationPreferenceRepository.save(prefs);
     }
 
 }
