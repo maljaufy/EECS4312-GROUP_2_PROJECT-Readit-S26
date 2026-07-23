@@ -23,7 +23,6 @@ import java.util.List;
  * A comment with no replies just renders as a leaf - so this same component
  * handles both flat (non-nested) and deeply nested threads without any
  * special-casing.
- *
  * NOTE: identity is read from the Vaadin session ("userId" attribute, set at
  * login) rather than userService.getCurrentUser() / SecurityContextHolder.
  * This is a workaround while the session-vs-JWT security config is unresolved -
