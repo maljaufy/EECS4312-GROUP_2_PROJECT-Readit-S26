@@ -38,8 +38,7 @@ public class UserContextIntegrationTest extends TestcontainersBase {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15")
             .withDatabaseName("testdb")
             .withUsername("user")
-            .withPassword("password")
-            .withInitScript("init.sql");  // Add this
+            .withPassword("password");
 
     @BeforeEach
     void setUp() {
