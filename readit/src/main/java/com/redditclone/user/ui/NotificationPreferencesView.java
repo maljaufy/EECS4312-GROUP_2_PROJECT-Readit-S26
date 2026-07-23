@@ -1,5 +1,6 @@
 package com.redditclone.user.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.user.domain.NotificationPreference;
 import com.redditclone.user.dto.NotificationPreferenceDto;
 import com.redditclone.user.service.UserService;
@@ -19,7 +20,7 @@ import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@Route("settings/notifications")
+@Route(value = "settings/notifications", layout = MainLayout.class)
 @PageTitle("Notification Preferences | Reddit Clone")
 @UIScope
 public class NotificationPreferencesView extends VerticalLayout implements BeforeEnterObserver {

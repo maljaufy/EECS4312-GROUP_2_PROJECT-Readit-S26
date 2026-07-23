@@ -1,5 +1,6 @@
 package com.redditclone.user.ui;
 
+import com.redditclone.shared.security.AuthenticationSessionService;
 import com.redditclone.user.dto.RegistrationDto;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.Composite;
@@ -41,6 +42,9 @@ public class RegisterView extends Composite<VerticalLayout>{
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private AuthenticationSessionService authenticationSessionService;
 
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -177,7 +181,10 @@ public class RegisterView extends Composite<VerticalLayout>{
                     3000,
                     Notification.Position.MIDDLE
             );
-            getUI().ifPresent(ui -> ui.navigate("recommendations"));
+            getUI().ifPresent(ui -> {
+                authenticationSessionService.signIn(ui, dto.getUsername(), dto.getPassword());
+                ui.navigate("feed");
+            });
         } catch (IllegalArgumentException ex) {
             Notification.show(ex.getMessage(), 5000, Notification.Position.MIDDLE);
         } catch (Exception ex) {

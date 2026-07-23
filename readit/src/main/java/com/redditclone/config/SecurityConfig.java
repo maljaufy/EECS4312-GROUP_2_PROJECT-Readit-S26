@@ -35,7 +35,12 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/register", "/login").permitAll()
+                        .requestMatchers(
+                                "/", "/register", "/login", "/error",
+                                "/VAADIN/**", "/vaadin/**", "/frontend/**", "/webjars/**",
+                                "/images/**", "/icons/**", "/manifest.webmanifest",
+                                "/sw.js", "/offline.html", "/favicon.ico", "/favicon.png"
+                        ).permitAll()
                         .requestMatchers("/feed", "/profile/**").authenticated()
                         .anyRequest().permitAll()
                 )

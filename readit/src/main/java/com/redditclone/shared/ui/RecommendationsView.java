@@ -17,7 +17,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-@Route("recommendations")
+@Route(value = "recommendations", layout = MainLayout.class)
 @PageTitle("Recommendations | Reddit Clone")
 public class RecommendationsView extends Composite<VerticalLayout> {
 

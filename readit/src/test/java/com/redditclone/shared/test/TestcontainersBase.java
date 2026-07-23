@@ -2,6 +2,7 @@ package com.redditclone.shared.test;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.annotation.DirtiesContext;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -10,6 +11,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers(disabledWithoutDocker = true)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 public abstract class TestcontainersBase {
 
     @Container
@@ -34,6 +36,12 @@ public abstract class TestcontainersBase {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
+        // application.properties under src/test selects H2 for fast unit tests.
+        // These integration tests replace that datasource with PostgreSQL, so
+        // the matching dialect must be replaced as well. Otherwise Hibernate
+        // emits H2's `enum (...)` type, which PostgreSQL cannot create.
+        registry.add("spring.jpa.database-platform",
+                () -> "org.hibernate.dialect.PostgreSQLDialect");
 
         registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
         registry.add("spring.kafka.consumer.auto-offset-reset", () -> "earliest");

@@ -1,7 +1,12 @@
 package com.redditclone.posts.ui;
 
+import com.redditclone.comments.service.CommentService;
+import com.redditclone.comments.ui.PostCommentsView;
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.security.UserSession;
+import com.redditclone.shared.ui.MainLayout;
+import com.redditclone.user.service.UserService;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.button.Button;
@@ -23,7 +28,7 @@ import com.vaadin.flow.router.Route;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
-@Route("post/:postId")
+@Route(value = "post/:postId", layout = MainLayout.class)
 @PageTitle("Post | Reddit Clone")
 public class PostDetailView extends VerticalLayout implements BeforeEnterObserver {
 
@@ -32,12 +37,19 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
 
     private final PostService postService;
     private final VoteService voteService;
+    private final UserSession userSession;
+    private final PostCommentsView commentsView;
 
     private Post post;
 
-    public PostDetailView(PostService postService, VoteService voteService) {
+    public PostDetailView(PostService postService, VoteService voteService,
+                          CommentService commentService, UserService userService,
+                          UserSession userSession) {
         this.postService = postService;
         this.voteService = voteService;
+        this.userSession = userSession;
+        this.commentsView = new PostCommentsView(
+                commentService, userService, voteService);
 
         setSizeFull();
         setPadding(true);
@@ -72,7 +84,18 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
             return;
         }
 
-        add(buildCard());
+        commentsView.showForPost(post);
+        add(buildBackButton(), buildCard(), commentsView);
+    }
+
+    private Button buildBackButton() {
+        Button back = new Button("← Back to feed",
+                event -> getUI().ifPresent(ui -> ui.navigate("feed")));
+        back.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        back.getStyle()
+                .set("align-self", "flex-start")
+                .set("font-weight", "600");
+        return back;
     }
 
     private Div buildCard() {
@@ -168,8 +191,8 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
 
     private HorizontalLayout buildActions() {
         Button comments = actionButton("\uD83D\uDCAC Comments");
-        comments.addClickListener(event ->
-                getUI().ifPresent(ui -> ui.navigate("post/" + post.getId() + "/comments")));
+        comments.addClickListener(event -> commentsView.getElement().executeJs(
+                "this.scrollIntoView({ behavior: 'smooth', block: 'start' })"));
 
         Button backToFeed = actionButton("\u2190 Back to feed");
         backToFeed.addClickListener(event -> getUI().ifPresent(ui -> ui.navigate("feed")));
@@ -261,9 +284,7 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
     }
 
     private Long currentUserId() {
-        return (Long) getUI()
-                .map(ui -> ui.getSession().getAttribute("userId"))
-                .orElse(null);
+        return getUI().map(userSession::currentUserId).orElse(null);
     }
 
     private void showNotFound() {

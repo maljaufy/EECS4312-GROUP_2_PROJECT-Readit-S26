@@ -1,5 +1,6 @@
 package com.redditclone.notification.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.notification.service.MockEmailService;
 import com.redditclone.notification.service.NotificationSenderService;
 import com.vaadin.flow.component.button.Button;
@@ -13,7 +14,7 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@Route("admin/circuit-breaker")
+@Route(value = "admin/circuit-breaker", layout = MainLayout.class)
 @PageTitle("Circuit Breaker Dashboard | Reddit Clone")
 @UIScope
 public class CircuitBreakerDashboardView extends VerticalLayout {

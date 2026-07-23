@@ -1,5 +1,6 @@
 package com.redditclone.user.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.user.dto.UserProfileDto;
 import com.redditclone.user.service.UserService;
 import com.vaadin.flow.component.Composite;
@@ -20,6 +21,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
+import com.vaadin.flow.router.OptionalParameter;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
@@ -29,7 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 
-@Route("profile")
+@Route(value = "profile", layout = MainLayout.class)
 @PageTitle("Profile | Reddit Clone")
 @UIScope
 public class ProfileView extends Composite<VerticalLayout> implements HasUrlParameter<String>{
@@ -83,7 +85,7 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
     }
 
     @Override
-    public void setParameter(BeforeEvent event, String username) {
+    public void setParameter(BeforeEvent event, @OptionalParameter String username) {
         if (username == null || username.isEmpty()) {
             try {
                 this.viewedUsername = userService.getCurrentUser().getUsername();

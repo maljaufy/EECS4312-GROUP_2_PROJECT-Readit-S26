@@ -1,5 +1,6 @@
 package com.redditclone.subreddit.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.service.SubredditService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -17,7 +18,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-@Route("create-subreddit")
+@Route(value = "create-subreddit", layout = MainLayout.class)
 @PageTitle("Create Subreddit | Reddit Clone")
 public class CreateSubredditView extends VerticalLayout {
 

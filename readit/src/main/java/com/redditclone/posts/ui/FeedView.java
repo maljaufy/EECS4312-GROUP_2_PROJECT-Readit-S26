@@ -3,9 +3,10 @@ package com.redditclone.posts.ui;
 import com.redditclone.posts.domain.PostSortOption;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.security.UserSession;
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
-import com.redditclone.user.service.UserService;
 import com.redditclone.voting.dto.VoteResult;
 import com.redditclone.voting.service.VoteService;
 import com.vaadin.flow.component.Component;
@@ -24,12 +25,11 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-@Route("feed")
+@Route(value = "feed", layout = MainLayout.class)
 @PageTitle("Feed | Reddit Clone")
 public class FeedView extends VerticalLayout {
 
@@ -39,7 +39,7 @@ public class FeedView extends VerticalLayout {
     private final PostService postService;
     private final SubredditService subredditService;
     private final VoteService voteService;
-    private final UserService userService;
+    private final UserSession userSession;
     private final VerticalLayout postList = new VerticalLayout();
 
     private final Button hotBtn = new Button("\uD83D\uDD25 Hot");
@@ -49,11 +49,11 @@ public class FeedView extends VerticalLayout {
     private PostSortOption currentSort = PostSortOption.HOT;
 
     public FeedView(PostService postService, SubredditService subredditService,
-                    VoteService voteService, UserService userService) {
+                    VoteService voteService, UserSession userSession) {
         this.postService = postService;
         this.subredditService = subredditService;
         this.voteService = voteService;
-        this.userService = userService;
+        this.userSession = userSession;
 
         setSizeFull();
         setPadding(false);
@@ -65,7 +65,8 @@ public class FeedView extends VerticalLayout {
         // Top header bar
         HorizontalLayout topHeader = createTopHeader();
         
-        // Three-column layout
+        // Feed content plus the optional right rail. MainLayout owns the
+        // persistent left navigation for every application page.
         HorizontalLayout threeColumnLayout = new HorizontalLayout();
         threeColumnLayout.addClassName("feed-shell");
         threeColumnLayout.setWidthFull();
@@ -73,18 +74,6 @@ public class FeedView extends VerticalLayout {
         threeColumnLayout.setSpacing(false);
         threeColumnLayout.setPadding(false);
         threeColumnLayout.getStyle().set("overflow", "hidden");
-
-        // Left sidebar
-        VerticalLayout leftSidebar = createLeftSidebar();
-        leftSidebar.addClassName("feed-left-sidebar");
-        leftSidebar.setWidth("270px");
-        leftSidebar.setHeightFull();
-        leftSidebar.getStyle()
-            .set("position", "sticky")
-            .set("top", "0")
-            .set("flex-shrink", "0")
-            .set("overflow-y", "auto")
-            .set("padding", "16px 8px");
 
         // Center feed. The outer column consumes the available space while the
         // inner feed stays at a comfortable reading width.
@@ -112,7 +101,7 @@ public class FeedView extends VerticalLayout {
             .set("overflow-y", "auto")
             .set("padding", "16px 8px");
 
-        threeColumnLayout.add(leftSidebar, centerColumn, rightSidebar);
+        threeColumnLayout.add(centerColumn, rightSidebar);
         threeColumnLayout.expand(centerColumn);
 
         VerticalLayout mainLayout = new VerticalLayout(topHeader, threeColumnLayout);
@@ -482,7 +471,7 @@ public class FeedView extends VerticalLayout {
 
         item.add(subredditSpan, titleSpan);
         item.addClickListener(e -> getUI().ifPresent(
-                ui -> ui.navigate("post/" + post.id() + "/comments")));
+                ui -> ui.navigate("post/" + post.id())));
         
         addHoverEffect(item);
         
@@ -648,6 +637,13 @@ public class FeedView extends VerticalLayout {
                 .set("font-weight", "500")
                 .set("margin-bottom", "8px");
 
+        // One click anywhere in the post preview opens the post. Vote and
+        // action controls remain outside this preview and keep their own actions.
+        Div postPreview = new Div();
+        postPreview.getStyle().set("cursor", "pointer");
+        postPreview.addClickListener(event ->
+                getUI().ifPresent(ui -> ui.navigate("post/" + post.id())));
+
         // Post title
         H3 title = new H3(post.title());
         title.getStyle()
@@ -655,10 +651,7 @@ public class FeedView extends VerticalLayout {
                 .set("font-size", "18px")
                 .set("font-weight", "600")
                 .set("color", "#1c1c1c")
-                .set("line-height", "1.4")
-                .set("cursor", "pointer");
-        title.addClickListener(event ->
-                getUI().ifPresent(ui -> ui.navigate("post/" + post.id())));
+                .set("line-height", "1.4");
 
         // Post body
         Paragraph body = new Paragraph(post.content() == null ? "" : post.content());
@@ -686,7 +679,7 @@ public class FeedView extends VerticalLayout {
                 .set("padding", "4px 8px")
                 .set("cursor", "pointer");
         commentsBtn.addClickListener(event ->
-                getUI().ifPresent(ui -> ui.navigate("post/" + post.id() + "/comments")));
+                getUI().ifPresent(ui -> ui.navigate("post/" + post.id())));
 
         Button shareBtn = new Button("🔗 Share");
         shareBtn.getStyle()
@@ -710,7 +703,8 @@ public class FeedView extends VerticalLayout {
 
         actionButtons.add(commentsBtn, shareBtn, saveBtn);
 
-        contentSection.add(meta, title, body, actionButtons);
+        postPreview.add(meta, title, body);
+        contentSection.add(postPreview, actionButtons);
 
         // Combine vote and content sections
         HorizontalLayout cardLayout = new HorizontalLayout(voteSection, contentSection);
@@ -736,6 +730,9 @@ public class FeedView extends VerticalLayout {
     private void castPostVote(Long postId, boolean upvote, Span voteCount) {
         try {
             Long voterId = currentUserId();
+            if (voterId == null) {
+                throw new IllegalStateException("Please log in before voting");
+            }
             VoteResult result = upvote
                     ? voteService.upvotePost(voterId, postId)
                     : voteService.downvotePost(voterId, postId);
@@ -746,10 +743,7 @@ public class FeedView extends VerticalLayout {
     }
 
     private Long currentUserId() {
-        Long sessionUserId = getUI()
-                .map(ui -> (Long) ui.getSession().getAttribute("userId"))
-                .orElse(null);
-        return sessionUserId == null ? userService.getCurrentUser().getId() : sessionUserId;
+        return getUI().map(userSession::currentUserId).orElse(null);
     }
 
     private void registerVoteUpdateListener() {
@@ -770,11 +764,8 @@ public class FeedView extends VerticalLayout {
     }
 
     private void handleLogout() {
-        SecurityContextHolder.clearContext();
         getUI().ifPresent(ui -> {
-            ui.getSession().setAttribute("jwt", null);
-            ui.getSession().setAttribute("username", null);
-            ui.getSession().setAttribute("userId", null);
+            userSession.clear(ui);
             ui.navigate("");
         });
     }

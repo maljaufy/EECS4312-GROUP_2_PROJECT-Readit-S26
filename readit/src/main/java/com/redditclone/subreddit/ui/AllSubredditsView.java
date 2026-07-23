@@ -1,5 +1,6 @@
 package com.redditclone.subreddit.ui;
 
+import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
 import com.vaadin.flow.component.button.Button;
@@ -14,7 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
-@Route("all-subreddits")
+@Route(value = "all-subreddits", layout = MainLayout.class)
 @PageTitle("All Subreddits | Reddit Clone")
 public class AllSubredditsView extends VerticalLayout {
 
