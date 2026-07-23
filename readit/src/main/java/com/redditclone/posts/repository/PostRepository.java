@@ -17,4 +17,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @Query("SELECT p FROM Post p JOIN FETCH p.author JOIN FETCH p.subreddit WHERE p.id = :id")
     Optional<Post> findByIdWithAuthorAndSubreddit(@Param("id") Long id);
+
+    @Query("SELECT p FROM Post p JOIN FETCH p.author JOIN FETCH p.subreddit")
+    List<Post> findAllWithDetails();
 }

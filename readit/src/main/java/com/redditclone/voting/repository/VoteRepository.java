@@ -24,6 +24,8 @@ public interface VoteRepository extends JpaRepository<Vote, Long> {
             VoteValue value
     );
 
+    void deleteByTargetTypeAndTargetId(VoteTargetType targetType, Long targetId);
+
     default int calculateScore(VoteTargetType targetType, Long targetId) {
         long upvotes = countByTargetTypeAndTargetIdAndValue(targetType, targetId, VoteValue.UPVOTE);
         long downvotes = countByTargetTypeAndTargetIdAndValue(targetType, targetId, VoteValue.DOWNVOTE);

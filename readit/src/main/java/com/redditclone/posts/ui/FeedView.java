@@ -1,5 +1,6 @@
 package com.redditclone.posts.ui;
 
+import com.redditclone.posts.domain.PostSortOption;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.service.PostService;
 import com.redditclone.subreddit.domain.Subreddit;
@@ -40,6 +41,12 @@ public class FeedView extends VerticalLayout {
     private final VoteService voteService;
     private final UserService userService;
     private final VerticalLayout postList = new VerticalLayout();
+
+    private final Button hotBtn = new Button("\uD83D\uDD25 Hot");
+    private final Button newBtn = new Button("\u2728 New");
+    private final Button topBtn = new Button("\uD83C\uDFC6 Top");
+
+    private PostSortOption currentSort = PostSortOption.HOT;
 
     public FeedView(PostService postService, SubredditService subredditService,
                     VoteService voteService, UserService userService) {
@@ -165,34 +172,13 @@ public class FeedView extends VerticalLayout {
         sortButtons.setSpacing(true);
         sortButtons.setAlignItems(Alignment.CENTER);
 
-        Button hotBtn = new Button("🔥 Hot");
-        hotBtn.getStyle()
-            .set("background", "#0079D3")
-            .set("color", "white")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700");
+        styleSortButton(hotBtn, PostSortOption.HOT);
+        styleSortButton(newBtn, PostSortOption.NEW);
+        styleSortButton(topBtn, PostSortOption.TOP);
 
-        Button newBtn = new Button("✨ New");
-        newBtn.getStyle()
-            .set("background", "transparent")
-            .set("color", "#0079D3")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700")
-            .set("cursor", "pointer");
-
-        Button topBtn = new Button("🏆 Top");
-        topBtn.getStyle()
-            .set("background", "transparent")
-            .set("color", "#0079D3")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700")
-            .set("cursor", "pointer");
+        hotBtn.addClickListener(e -> applySort(PostSortOption.HOT));
+        newBtn.addClickListener(e -> applySort(PostSortOption.NEW));
+        topBtn.addClickListener(e -> applySort(PostSortOption.TOP));
 
         sortButtons.add(hotBtn, newBtn, topBtn);
 
@@ -512,9 +498,29 @@ public class FeedView extends VerticalLayout {
         });
     }
 
+    private void styleSortButton(Button button, PostSortOption option) {
+        boolean active = currentSort == option;
+        button.getStyle()
+            .set("background", active ? "#0079D3" : "transparent")
+            .set("color", active ? "white" : "#0079D3")
+            .set("border", "none")
+            .set("border-radius", "20px")
+            .set("padding", "6px 16px")
+            .set("font-weight", "700")
+            .set("cursor", "pointer");
+    }
+
+    private void applySort(PostSortOption option) {
+        currentSort = option;
+        styleSortButton(hotBtn, PostSortOption.HOT);
+        styleSortButton(newBtn, PostSortOption.NEW);
+        styleSortButton(topBtn, PostSortOption.TOP);
+        refresh();
+    }
+
     private void refresh() {
         postList.removeAll();
-        List<PostSummaryDto> feed = postService.getFeed();
+        List<PostSummaryDto> feed = postService.getFeed(currentSort);
         if (feed.isEmpty()) {
             Div emptyState = new Div();
             emptyState.getStyle()
@@ -649,7 +655,10 @@ public class FeedView extends VerticalLayout {
                 .set("font-size", "18px")
                 .set("font-weight", "600")
                 .set("color", "#1c1c1c")
-                .set("line-height", "1.4");
+                .set("line-height", "1.4")
+                .set("cursor", "pointer");
+        title.addClickListener(event ->
+                getUI().ifPresent(ui -> ui.navigate("post/" + post.id())));
 
         // Post body
         Paragraph body = new Paragraph(post.content() == null ? "" : post.content());
