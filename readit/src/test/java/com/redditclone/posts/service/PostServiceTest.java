@@ -2,10 +2,12 @@ package com.redditclone.posts.service;
 
 import com.redditclone.posts.domain.Post;
 import com.redditclone.posts.dto.PostDto;
+import com.redditclone.comments.repository.CommentRepository;
 import com.redditclone.posts.repository.PostRepository;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
 import com.redditclone.user.domain.User;
+import com.redditclone.voting.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +31,12 @@ class PostServiceTest {
 
     @Mock
     private SubredditService subredditService;
+
+    @Mock
+    private CommentRepository commentRepository;
+
+    @Mock
+    private VoteRepository voteRepository;
 
     @InjectMocks
     private PostService postService;
