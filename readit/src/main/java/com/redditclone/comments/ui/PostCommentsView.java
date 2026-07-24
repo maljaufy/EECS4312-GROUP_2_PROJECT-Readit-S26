@@ -26,6 +26,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
+import com.redditclone.shared.security.UserSession;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +39,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
     private final CommentService commentService;
     private final UserService userService;
     private final VoteService voteService;
+    private final UserSession userSession;
 
     // One coordinator per page load - shared by every CommentThreadComponent in this
     // thread so that opening a reply box anywhere closes whichever one was open before.
@@ -50,10 +52,12 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
     public PostCommentsView(CommentService commentService,
                             UserService userService,
-                            VoteService voteService) {
+                            VoteService voteService,
+                            UserSession userSession) {
         this.commentService = commentService;
         this.userService = userService;
         this.voteService = voteService;
+        this.userSession = userSession;
 
         setPadding(true);
         setSpacing(true);
@@ -62,13 +66,10 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
     }
 
     /**
-     * Reads the logged-in user's ID from the Vaadin session, or null if nobody's logged in.
-     * Session attribute is set once, at login, in LoginView.
+     * Reads the logged-in user's ID via UserSession, or null if nobody's logged in.
      */
     private Long getCurrentUserId() {
-        return (Long) getUI()
-                .map(ui -> ui.getSession().getAttribute("userId"))
-                .orElse(null);
+        return getUI().map(userSession::currentUserId).orElse(null);
     }
 
     @Override
@@ -206,7 +207,7 @@ public class PostCommentsView extends VerticalLayout implements BeforeEnterObser
 
         for (Comment comment : topLevel) {
             commentsContainer.add(new CommentThreadComponent(
-                    comment, 0, commentService, userService, voteService,
+                    comment, 0, commentService, userService, voteService, userSession,
                     this::loadTopLevelComments, replyFormCoordinator));
         }
     }

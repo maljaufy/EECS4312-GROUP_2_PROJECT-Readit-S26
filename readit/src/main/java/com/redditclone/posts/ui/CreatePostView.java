@@ -2,6 +2,7 @@ package com.redditclone.posts.ui;
 
 import com.redditclone.posts.dto.PostDto;
 import com.redditclone.posts.service.PostService;
+import com.redditclone.shared.security.UserSession;
 import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
@@ -22,7 +23,6 @@ import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
@@ -30,17 +30,22 @@ import java.util.List;
 @PageTitle("Create Post | Reddit Clone")
 public class CreatePostView extends VerticalLayout {
 
+    private final UserSession userSession;
+
     public CreatePostView(PostService postService,
                           SubredditService subredditService,
-                          UserService userService) {
+                          UserService userService,
+                          UserSession userSession) {
+        this.userSession = userSession;
+
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         setJustifyContentMode(JustifyContentMode.START);
         addClassName("creation-view");
         getStyle()
-            .set("background", "#f3f4f6")
-            .set("overflow-y", "auto")
-            .set("padding", "32px 20px");
+                .set("background", "#f3f4f6")
+                .set("overflow-y", "auto")
+                .set("padding", "32px 20px");
 
         // Main container
         VerticalLayout mainContainer = new VerticalLayout();
@@ -50,11 +55,11 @@ public class CreatePostView extends VerticalLayout {
         mainContainer.setSpacing(true);
         mainContainer.addClassName("creation-card");
         mainContainer.getStyle()
-            .set("background", "#ffffff")
-            .set("border", "1px solid #d7dce2")
-            .set("border-radius", "14px")
-            .set("box-shadow", "0 10px 30px rgba(15, 23, 42, 0.08)")
-            .set("padding", "28px");
+                .set("background", "#ffffff")
+                .set("border", "1px solid #d7dce2")
+                .set("border-radius", "14px")
+                .set("box-shadow", "0 10px 30px rgba(15, 23, 42, 0.08)")
+                .set("padding", "28px");
 
         // Header with logout button
         HorizontalLayout headerLayout = new HorizontalLayout();
@@ -65,30 +70,30 @@ public class CreatePostView extends VerticalLayout {
 
         H2 logo = new H2("📱 Readit");
         logo.getStyle()
-            .set("margin", "0")
-            .set("color", "#ff4500")
-            .set("cursor", "pointer");
+                .set("margin", "0")
+                .set("color", "#ff4500")
+                .set("cursor", "pointer");
         logo.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
 
         Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
         logoutButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logoutButton.getStyle()
-            .set("color", "#334155")
-            .set("font-weight", "600")
-            .set("padding", "8px 16px");
+                .set("color", "#334155")
+                .set("font-weight", "600")
+                .set("padding", "8px 16px");
         logoutButton.addClickListener(e -> handleLogout());
 
         headerLayout.add(logo, logoutButton);
 
         H2 pageTitle = new H2("Create a post");
         pageTitle.getStyle()
-            .set("color", "#111827")
-            .set("margin", "4px 0 0");
+                .set("color", "#111827")
+                .set("margin", "4px 0 0");
 
         Paragraph pageDescription = new Paragraph("Share something with a community and start a conversation.");
         pageDescription.getStyle()
-            .set("color", "#52606d")
-            .set("margin", "-8px 0 8px");
+                .set("color", "#52606d")
+                .set("margin", "-8px 0 8px");
 
         TextField title = new TextField("Title");
         title.setRequiredIndicatorVisible(true);
@@ -111,7 +116,7 @@ public class CreatePostView extends VerticalLayout {
         Button submit = new Button("Submit post", event -> {
             User author;
             try {
-                author = resolveCurrentUser(userService);
+                author = userService.getCurrentUser();
             } catch (IllegalStateException notLoggedIn) {
                 Notification error = Notification.show("Please log in first.");
                 error.addThemeVariants(NotificationVariant.LUMO_ERROR);
@@ -153,8 +158,8 @@ public class CreatePostView extends VerticalLayout {
         });
         submit.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         submit.getStyle()
-            .set("background", "#ff4500")
-            .set("font-weight", "700");
+                .set("background", "#ff4500")
+                .set("font-weight", "700");
 
         Button cancel = new Button("Cancel", e -> getUI().ifPresent(ui -> ui.navigate("feed")));
         cancel.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -167,11 +172,11 @@ public class CreatePostView extends VerticalLayout {
         if (subreddits.isEmpty()) {
             Div emptyCommunityNotice = new Div();
             emptyCommunityNotice.getStyle()
-                .set("background", "#fff7ed")
-                .set("border", "1px solid #fed7aa")
-                .set("border-radius", "10px")
-                .set("color", "#7c2d12")
-                .set("padding", "14px 16px");
+                    .set("background", "#fff7ed")
+                    .set("border", "1px solid #fed7aa")
+                    .set("border-radius", "10px")
+                    .set("color", "#7c2d12")
+                    .set("padding", "14px 16px");
             Paragraph noticeText = new Paragraph(
                     "There are no communities yet. Create one before publishing your first post.");
             noticeText.getStyle().set("margin", "0 0 10px");
@@ -187,19 +192,9 @@ public class CreatePostView extends VerticalLayout {
         add(mainContainer);
     }
 
-    private User resolveCurrentUser(UserService userService) {
-        Long sessionUserId = getUI()
-                .map(ui -> (Long) ui.getSession().getAttribute("userId"))
-                .orElse(null);
-        return sessionUserId == null ? userService.getCurrentUser() : userService.findById(sessionUserId);
-    }
-
     private void handleLogout() {
-        SecurityContextHolder.clearContext();
         getUI().ifPresent(ui -> {
-            ui.getSession().setAttribute("jwt", null);
-            ui.getSession().setAttribute("username", null);
-            ui.getSession().setAttribute("userId", null);
+            userSession.clear(ui);
             ui.navigate("");
         });
     }

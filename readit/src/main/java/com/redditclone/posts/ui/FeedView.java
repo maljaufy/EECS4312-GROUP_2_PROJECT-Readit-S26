@@ -58,8 +58,8 @@ public class FeedView extends VerticalLayout {
         setPadding(false);
         setSpacing(false);
         getStyle()
-            .set("background", "#DAE0E6")
-            .set("margin", "0");
+                .set("background", "#DAE0E6")
+                .set("margin", "0");
 
         // Feed content plus the optional right rail. MainLayout owns the
         // persistent navigation and the single full-width top bar.
@@ -82,8 +82,8 @@ public class FeedView extends VerticalLayout {
         centerColumn.setSpacing(false);
         centerColumn.setAlignItems(Alignment.CENTER);
         centerColumn.getStyle()
-            .set("padding", "20px 24px")
-            .set("overflow-y", "auto");
+                .set("padding", "20px 24px")
+                .set("overflow-y", "auto");
 
         // Right sidebar
         VerticalLayout rightSidebar = createRightSidebar();
@@ -91,11 +91,11 @@ public class FeedView extends VerticalLayout {
         rightSidebar.setWidth("312px");
         rightSidebar.setHeightFull();
         rightSidebar.getStyle()
-            .set("position", "sticky")
-            .set("top", "0")
-            .set("flex-shrink", "0")
-            .set("overflow-y", "auto")
-            .set("padding", "16px 8px");
+                .set("position", "sticky")
+                .set("top", "0")
+                .set("flex-shrink", "0")
+                .set("overflow-y", "auto")
+                .set("padding", "16px 8px");
 
         threeColumnLayout.add(centerColumn, rightSidebar);
         threeColumnLayout.expand(centerColumn);
@@ -134,13 +134,13 @@ public class FeedView extends VerticalLayout {
         // Start a community button
         Button startCommunity = new Button("Start a community");
         startCommunity.getStyle()
-            .set("width", "100%")
-            .set("background", "#0079D3")
-            .set("color", "white")
-            .set("font-weight", "600")
-            .set("padding", "12px")
-            .set("border-radius", "20px")
-            .set("margin-top", "16px");
+                .set("width", "100%")
+                .set("background", "#0079D3")
+                .set("color", "white")
+                .set("font-weight", "600")
+                .set("padding", "12px")
+                .set("border-radius", "20px")
+                .set("margin-top", "16px");
         startCommunity.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
 
         // Games on Reddit section
@@ -159,19 +159,19 @@ public class FeedView extends VerticalLayout {
     private Div createNavLink(String text, String route) {
         Div link = new Div(text);
         link.getStyle()
-            .set("padding", "10px 16px")
-            .set("border-radius", "8px")
-            .set("cursor", "pointer")
-            .set("font-weight", "500")
-            .set("color", "#1c1c1c")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("gap", "12px");
+                .set("padding", "10px 16px")
+                .set("border-radius", "8px")
+                .set("cursor", "pointer")
+                .set("font-weight", "500")
+                .set("color", "#1c1c1c")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("gap", "12px");
         link.addClassName("nav-link");
         link.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate(route)));
-        
+
         addHoverEffect(link);
-        
+
         return link;
     }
 
@@ -180,17 +180,17 @@ public class FeedView extends VerticalLayout {
         section.setSpacing(false);
         section.setPadding(false);
         section.getStyle()
-            .set("margin-top", "24px")
-            .set("background", "transparent");
+                .set("margin-top", "24px")
+                .set("background", "transparent");
 
         H4 header = new H4(title);
         header.getStyle()
-            .set("margin", "0 0 8px 0")
-            .set("font-size", "12px")
-            .set("font-weight", "700")
-            .set("color", "#7c7c7c")
-            .set("text-transform", "uppercase")
-            .set("padding", "0 16px");
+                .set("margin", "0 0 8px 0")
+                .set("font-size", "12px")
+                .set("font-weight", "700")
+                .set("color", "#7c7c7c")
+                .set("text-transform", "uppercase")
+                .set("padding", "0 16px");
 
         VerticalLayout itemsList = new VerticalLayout();
         itemsList.setSpacing(false);
@@ -199,16 +199,16 @@ public class FeedView extends VerticalLayout {
         for (String item : items) {
             Div itemDiv = new Div(item);
             itemDiv.getStyle()
-                .set("padding", "8px 16px")
-                .set("border-radius", "8px")
-                .set("cursor", "pointer")
-                .set("font-weight", "500")
-                .set("color", "#1c1c1c")
-                .set("font-size", "14px");
+                    .set("padding", "8px 16px")
+                    .set("border-radius", "8px")
+                    .set("cursor", "pointer")
+                    .set("font-weight", "500")
+                    .set("color", "#1c1c1c")
+                    .set("font-size", "14px");
             itemDiv.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
-            
+
             addHoverEffect(itemDiv);
-            
+
             itemsList.add(itemDiv);
         }
 
@@ -227,54 +227,54 @@ public class FeedView extends VerticalLayout {
         // Create post input bar
         Div createPostBar = new Div();
         createPostBar.getStyle()
-            .set("width", "100%")
-            .set("box-sizing", "border-box")
-            .set("background", "white")
-            .set("border-radius", "4px")
-            .set("padding", "12px")
-            .set("border", "1px solid #ccc")
-            .set("margin-bottom", "16px")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("gap", "12px");
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "white")
+                .set("border-radius", "4px")
+                .set("padding", "12px")
+                .set("border", "1px solid #ccc")
+                .set("margin-bottom", "16px")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("gap", "12px");
 
         Span userAvatar = new Span("👤");
         userAvatar.getStyle()
-            .set("font-size", "32px")
-            .set("width", "38px")
-            .set("height", "38px")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center");
+                .set("font-size", "32px")
+                .set("width", "38px")
+                .set("height", "38px")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center");
 
         Span inputPlaceholder = new Span("Create Post");
         inputPlaceholder.getStyle()
-            .set("background", "#F6F7F8")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "4px")
-            .set("padding", "10px 16px")
-            .set("flex-grow", "1")
-            .set("cursor", "pointer")
-            .set("color", "#7c7c7c");
+                .set("background", "#F6F7F8")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("padding", "10px 16px")
+                .set("flex-grow", "1")
+                .set("cursor", "pointer")
+                .set("color", "#7c7c7c");
         inputPlaceholder.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("create-post")));
 
         Button imageBtn = new Button("🖼️");
         imageBtn.getStyle()
-            .set("background", "#F6F7F8")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "4px")
-            .set("padding", "8px 12px")
-            .set("cursor", "pointer");
+                .set("background", "#F6F7F8")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("padding", "8px 12px")
+                .set("cursor", "pointer");
 
         createPostBar.add(userAvatar, inputPlaceholder, imageBtn);
 
         // Feed title
         H3 feedTitle = new H3("Home");
         feedTitle.getStyle()
-            .set("margin", "0 0 16px 0")
-            .set("font-size", "18px")
-            .set("font-weight", "600")
-            .set("color", "#1c1c1c");
+                .set("margin", "0 0 16px 0")
+                .set("font-size", "18px")
+                .set("font-weight", "600")
+                .set("color", "#1c1c1c");
 
         postList.setPadding(false);
         postList.setWidthFull();
@@ -313,57 +313,57 @@ public class FeedView extends VerticalLayout {
         // Premium promotion
         Div premiumCard = new Div();
         premiumCard.getStyle()
-            .set("width", "100%")
-            .set("box-sizing", "border-box")
-            .set("background", "white")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "4px")
-            .set("padding", "12px")
-            .set("margin-bottom", "16px");
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("padding", "12px")
+                .set("margin-bottom", "16px");
 
         H4 premiumTitle = new H4("Readit Premium");
         premiumTitle.getStyle()
-            .set("margin", "0 0 8px 0")
-            .set("font-size", "14px")
-            .set("font-weight", "600")
-            .set("color", "#1c1c1c");
+                .set("margin", "0 0 8px 0")
+                .set("font-size", "14px")
+                .set("font-weight", "600")
+                .set("color", "#1c1c1c");
 
         Paragraph premiumText = new Paragraph("The best Readit experience with monthly coins");
         premiumText.getStyle()
-            .set("margin", "0 0 12px 0")
-            .set("font-size", "12px")
-            .set("color", "#7c7c7c");
+                .set("margin", "0 0 12px 0")
+                .set("font-size", "12px")
+                .set("color", "#7c7c7c");
 
         Button tryNow = new Button("Try Now");
         tryNow.getStyle()
-            .set("background", "#FF4500")
-            .set("color", "white")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "8px 16px")
-            .set("font-weight", "600")
-            .set("width", "100%");
+                .set("background", "#FF4500")
+                .set("color", "white")
+                .set("border", "none")
+                .set("border-radius", "20px")
+                .set("padding", "8px 16px")
+                .set("font-weight", "600")
+                .set("width", "100%");
 
         premiumCard.add(premiumTitle, premiumText, tryNow);
 
         // Recent Posts section
         Div recentPostsCard = new Div();
         recentPostsCard.getStyle()
-            .set("width", "100%")
-            .set("box-sizing", "border-box")
-            .set("background", "white")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "4px")
-            .set("padding", "12px");
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("padding", "12px");
 
         H4 recentTitle = new H4("Recent Posts");
         recentTitle.getStyle()
-            .set("margin", "0 0 12px 0")
-            .set("font-size", "14px")
-            .set("font-weight", "600")
-            .set("color", "#1c1c1c")
-            .set("border-bottom", "1px solid #eee")
-            .set("padding-bottom", "8px");
+                .set("margin", "0 0 12px 0")
+                .set("font-size", "14px")
+                .set("font-weight", "600")
+                .set("color", "#1c1c1c")
+                .set("border-bottom", "1px solid #eee")
+                .set("padding-bottom", "8px");
 
         VerticalLayout recentPostsList = new VerticalLayout();
         recentPostsList.setSpacing(false);
@@ -373,10 +373,10 @@ public class FeedView extends VerticalLayout {
         if (recentPosts.isEmpty()) {
             Paragraph noRecentPosts = new Paragraph("New activity will appear here once posts are published.");
             noRecentPosts.getStyle()
-                .set("color", "#667085")
-                .set("font-size", "13px")
-                .set("line-height", "1.5")
-                .set("margin", "4px 0");
+                    .set("color", "#667085")
+                    .set("font-size", "13px")
+                    .set("line-height", "1.5")
+                    .set("margin", "4px 0");
             recentPostsList.add(noRecentPosts);
         } else {
             recentPosts.forEach(post -> recentPostsList.add(createRecentPostItem(post)));
@@ -391,31 +391,31 @@ public class FeedView extends VerticalLayout {
     private Div createRecentPostItem(PostSummaryDto post) {
         Div item = new Div();
         item.getStyle()
-            .set("padding", "8px 0")
-            .set("border-bottom", "1px solid #eee")
-            .set("cursor", "pointer");
+                .set("padding", "8px 0")
+                .set("border-bottom", "1px solid #eee")
+                .set("cursor", "pointer");
 
         Span subredditSpan = new Span("r/" + post.subredditName());
         subredditSpan.getStyle()
-            .set("font-size", "12px")
-            .set("font-weight", "600")
-            .set("color", "#0079D3")
-            .set("display", "block")
-            .set("margin-bottom", "4px");
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("color", "#0079D3")
+                .set("display", "block")
+                .set("margin-bottom", "4px");
 
         Span titleSpan = new Span(post.title());
         titleSpan.getStyle()
-            .set("font-size", "13px")
-            .set("color", "#1c1c1c")
-            .set("display", "block")
-            .set("line-height", "1.4");
+                .set("font-size", "13px")
+                .set("color", "#1c1c1c")
+                .set("display", "block")
+                .set("line-height", "1.4");
 
         item.add(subredditSpan, titleSpan);
         item.addClickListener(e -> getUI().ifPresent(
                 ui -> ui.navigate("post/" + post.id())));
-        
+
         addHoverEffect(item);
-        
+
         return item;
     }
 
@@ -431,13 +431,13 @@ public class FeedView extends VerticalLayout {
     private void styleSortButton(Button button, PostSortOption option) {
         boolean active = currentSort == option;
         button.getStyle()
-            .set("background", active ? "#0079D3" : "transparent")
-            .set("color", active ? "white" : "#0079D3")
-            .set("border", "none")
-            .set("border-radius", "20px")
-            .set("padding", "6px 16px")
-            .set("font-weight", "700")
-            .set("cursor", "pointer");
+                .set("background", active ? "#0079D3" : "transparent")
+                .set("color", active ? "white" : "#0079D3")
+                .set("border", "none")
+                .set("border-radius", "20px")
+                .set("padding", "6px 16px")
+                .set("font-weight", "700")
+                .set("cursor", "pointer");
     }
 
     private void applySort(PostSortOption option) {
@@ -454,42 +454,42 @@ public class FeedView extends VerticalLayout {
         if (feed.isEmpty()) {
             Div emptyState = new Div();
             emptyState.getStyle()
-                .set("text-align", "center")
-                .set("padding", "52px 28px")
-                .set("min-height", "260px")
-                .set("box-sizing", "border-box")
-                .set("background", "white")
-                .set("border", "1px solid #ccc")
-                .set("border-radius", "10px")
-                .set("display", "flex")
-                .set("flex-direction", "column")
-                .set("align-items", "center")
-                .set("justify-content", "center");
+                    .set("text-align", "center")
+                    .set("padding", "52px 28px")
+                    .set("min-height", "260px")
+                    .set("box-sizing", "border-box")
+                    .set("background", "white")
+                    .set("border", "1px solid #ccc")
+                    .set("border-radius", "10px")
+                    .set("display", "flex")
+                    .set("flex-direction", "column")
+                    .set("align-items", "center")
+                    .set("justify-content", "center");
 
             H3 emptyIcon = new H3("📭");
             emptyIcon.getStyle()
-                .set("font-size", "48px")
-                .set("margin", "0 0 16px 0");
+                    .set("font-size", "48px")
+                    .set("margin", "0 0 16px 0");
 
             H3 emptyTitle = new H3("No posts yet");
             emptyTitle.getStyle()
-                .set("margin", "0 0 8px 0")
-                .set("color", "#1c1c1c")
-                .set("font-size", "18px")
-                .set("font-weight", "600");
+                    .set("margin", "0 0 8px 0")
+                    .set("color", "#1c1c1c")
+                    .set("font-size", "18px")
+                    .set("font-weight", "600");
 
             Paragraph emptyText = new Paragraph("Be the first to create a post and start the conversation!");
             emptyText.getStyle()
-                .set("margin", "0 0 22px")
-                .set("color", "#7c7c7c")
-                .set("font-size", "14px");
+                    .set("margin", "0 0 22px")
+                    .set("color", "#7c7c7c")
+                    .set("font-size", "14px");
 
             Button createPost = new Button("Create the first post",
                     event -> getUI().ifPresent(ui -> ui.navigate("create-post")));
             createPost.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
             createPost.getStyle()
-                .set("background", "#ff4500")
-                .set("font-weight", "700");
+                    .set("background", "#ff4500")
+                    .set("font-weight", "700");
 
             Button createCommunity = new Button("Start a community",
                     event -> getUI().ifPresent(ui -> ui.navigate("create-subreddit")));
@@ -574,15 +574,43 @@ public class FeedView extends VerticalLayout {
                 .set("display", "flex")
                 .set("flex-direction", "column");
 
-        // Post metadata
-        Span meta = new Span("r/" + post.subredditName()
-                + "  \u2022  posted by u/" + post.authorUsername()
-                + "  \u2022  " + TIME.format(post.createdAt()));
-        meta.getStyle()
+        // Post metadata: "r/<subreddit>  •  posted by u/<username>  •  <time>"
+        // The username portion is a separate, clickable span that links to
+        // that user's profile; the rest stays plain text.
+        Span subredditLabel = new Span("r/" + post.subredditName() + "  \u2022  posted by ");
+        subredditLabel.getStyle()
                 .set("color", "#7c7c7c")
                 .set("font-size", "12px")
-                .set("font-weight", "500")
-                .set("margin-bottom", "8px");
+                .set("font-weight", "500");
+
+        Span usernameLink = new Span("u/" + post.authorUsername());
+        usernameLink.getStyle()
+                .set("color", "#0079D3")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("cursor", "pointer");
+        usernameLink.getElement().addEventListener("mouseover", e ->
+                usernameLink.getStyle().set("text-decoration", "underline"));
+        usernameLink.getElement().addEventListener("mouseout", e ->
+                usernameLink.getStyle().set("text-decoration", "none"));
+        usernameLink.addClickListener(event -> {
+            // Stop the click from also bubbling up to the post-preview's own
+            // click listener, which would navigate to the post instead.
+            event.getSource().getElement().executeJs("event.stopPropagation()");
+            getUI().ifPresent(ui -> ui.navigate("profile/" + post.authorUsername()));
+        });
+
+        Span timeLabel = new Span("  \u2022  " + TIME.format(post.createdAt()));
+        timeLabel.getStyle()
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "500");
+
+        HorizontalLayout meta = new HorizontalLayout(subredditLabel, usernameLink, timeLabel);
+        meta.setSpacing(false);
+        meta.setPadding(false);
+        meta.setAlignItems(Alignment.BASELINE);
+        meta.getStyle().set("margin-bottom", "8px").set("flex-wrap", "wrap");
 
         // One click anywhere in the post preview opens the post. Vote and
         // action controls remain outside this preview and keep their own actions.
@@ -735,17 +763,17 @@ public class FeedView extends VerticalLayout {
         section.setSpacing(false);
         section.setPadding(false);
         section.getStyle()
-            .set("margin-top", "24px")
-            .set("background", "transparent");
+                .set("margin-top", "24px")
+                .set("background", "transparent");
 
         H4 header = new H4("Communities");
         header.getStyle()
-            .set("margin", "0 0 8px 0")
-            .set("font-size", "12px")
-            .set("font-weight", "700")
-            .set("color", "#7c7c7c")
-            .set("text-transform", "uppercase")
-            .set("padding", "0 16px");
+                .set("margin", "0 0 8px 0")
+                .set("font-size", "12px")
+                .set("font-weight", "700")
+                .set("color", "#7c7c7c")
+                .set("text-transform", "uppercase")
+                .set("padding", "0 16px");
 
         VerticalLayout itemsList = new VerticalLayout();
         itemsList.setSpacing(false);
@@ -755,16 +783,16 @@ public class FeedView extends VerticalLayout {
         for (Subreddit subreddit : subreddits) {
             Div itemDiv = new Div("r/" + subreddit.getName());
             itemDiv.getStyle()
-                .set("padding", "8px 16px")
-                .set("border-radius", "8px")
-                .set("cursor", "pointer")
-                .set("font-weight", "500")
-                .set("color", "#1c1c1c")
-                .set("font-size", "14px");
+                    .set("padding", "8px 16px")
+                    .set("border-radius", "8px")
+                    .set("cursor", "pointer")
+                    .set("font-weight", "500")
+                    .set("color", "#1c1c1c")
+                    .set("font-size", "14px");
             itemDiv.addClickListener(e -> getUI().ifPresent(ui -> ui.navigate("feed")));
-            
+
             addHoverEffect(itemDiv);
-            
+
             itemsList.add(itemDiv);
         }
 
@@ -782,39 +810,39 @@ public class FeedView extends VerticalLayout {
 
     private void performSearch(String query) {
         postList.removeAll();
-        
+
         // Search posts
         List<PostSummaryDto> postResults = postService.searchPosts(query);
-        
+
         // Search subreddits
         List<Subreddit> subredditResults = subredditService.searchSubreddits(query);
-        
+
         if (postResults.isEmpty() && subredditResults.isEmpty()) {
             Div emptyState = new Div();
             emptyState.getStyle()
-                .set("text-align", "center")
-                .set("padding", "40px 20px")
-                .set("background", "white")
-                .set("border", "1px solid #ccc")
-                .set("border-radius", "4px");
+                    .set("text-align", "center")
+                    .set("padding", "40px 20px")
+                    .set("background", "white")
+                    .set("border", "1px solid #ccc")
+                    .set("border-radius", "4px");
 
             H3 emptyIcon = new H3("🔍");
             emptyIcon.getStyle()
-                .set("font-size", "48px")
-                .set("margin", "0 0 16px 0");
+                    .set("font-size", "48px")
+                    .set("margin", "0 0 16px 0");
 
             H3 emptyTitle = new H3("No results found");
             emptyTitle.getStyle()
-                .set("margin", "0 0 8px 0")
-                .set("color", "#1c1c1c")
-                .set("font-size", "18px")
-                .set("font-weight", "600");
+                    .set("margin", "0 0 8px 0")
+                    .set("color", "#1c1c1c")
+                    .set("font-size", "18px")
+                    .set("font-weight", "600");
 
             Paragraph emptyText = new Paragraph("Try searching for something else");
             emptyText.getStyle()
-                .set("margin", "0")
-                .set("color", "#7c7c7c")
-                .set("font-size", "14px");
+                    .set("margin", "0")
+                    .set("color", "#7c7c7c")
+                    .set("font-size", "14px");
 
             emptyState.add(emptyIcon, emptyTitle, emptyText);
             postList.add(emptyState);
@@ -823,54 +851,54 @@ public class FeedView extends VerticalLayout {
             if (!subredditResults.isEmpty()) {
                 H4 subredditHeader = new H4("Communities");
                 subredditHeader.getStyle()
-                    .set("margin", "0 0 12px 0")
-                    .set("font-size", "14px")
-                    .set("font-weight", "700")
-                    .set("color", "#1c1c1c");
+                        .set("margin", "0 0 12px 0")
+                        .set("font-size", "14px")
+                        .set("font-weight", "700")
+                        .set("color", "#1c1c1c");
                 postList.add(subredditHeader);
-                
+
                 for (Subreddit subreddit : subredditResults) {
                     Div subredditCard = createSubredditCard(subreddit);
                     postList.add(subredditCard);
                 }
             }
-            
+
             // Display post results
             if (!postResults.isEmpty()) {
                 H4 postsHeader = new H4("Posts");
                 postsHeader.getStyle()
-                    .set("margin", "24px 0 12px 0")
-                    .set("font-size", "14px")
-                    .set("font-weight", "700")
-                    .set("color", "#1c1c1c");
+                        .set("margin", "24px 0 12px 0")
+                        .set("font-size", "14px")
+                        .set("font-weight", "700")
+                        .set("color", "#1c1c1c");
                 postList.add(postsHeader);
-                
+
                 postResults.forEach(post -> postList.add(card(post)));
             }
         }
     }
-    
+
     private Div createSubredditCard(Subreddit subreddit) {
         Div card = new Div();
         card.getStyle()
-            .set("background", "white")
-            .set("border", "1px solid #ccc")
-            .set("border-radius", "4px")
-            .set("padding", "16px")
-            .set("margin-bottom", "8px")
-            .set("cursor", "pointer")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("gap", "12px");
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-radius", "4px")
+                .set("padding", "16px")
+                .set("margin-bottom", "8px")
+                .set("cursor", "pointer")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("gap", "12px");
 
         Span icon = new Span("📁");
         icon.getStyle()
-            .set("font-size", "32px")
-            .set("width", "40px")
-            .set("height", "40px")
-            .set("display", "flex")
-            .set("align-items", "center")
-            .set("justify-content", "center");
+                .set("font-size", "32px")
+                .set("width", "40px")
+                .set("height", "40px")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("justify-content", "center");
 
         VerticalLayout content = new VerticalLayout();
         content.setSpacing(false);
@@ -878,25 +906,25 @@ public class FeedView extends VerticalLayout {
 
         Span name = new Span("r/" + subreddit.getName());
         name.getStyle()
-            .set("font-weight", "600")
-            .set("font-size", "16px")
-            .set("color", "#0079D3");
+                .set("font-weight", "600")
+                .set("font-size", "16px")
+                .set("color", "#0079D3");
 
         Span description = new Span(subreddit.getDescription() != null ? subreddit.getDescription() : "No description");
         description.getStyle()
-            .set("font-size", "14px")
-            .set("color", "#7c7c7c")
-            .set("margin-top", "4px");
+                .set("font-size", "14px")
+                .set("color", "#7c7c7c")
+                .set("margin-top", "4px");
 
         content.add(name, description);
         card.add(icon, content);
-        
+
         card.addClickListener(e -> {
             // Navigate to subreddit-specific feed (for now, just refresh feed)
             // TODO: Create subreddit-specific view
             getUI().ifPresent(ui -> ui.navigate("feed"));
         });
-        
+
         // Hover effect
         card.getElement().addEventListener("mouseover", e -> {
             card.getStyle().set("border-color", "#0079D3");
@@ -905,7 +933,7 @@ public class FeedView extends VerticalLayout {
         card.getElement().addEventListener("mouseout", e -> {
             card.getStyle().set("border-color", "#ccc");
         });
-        
+
         return card;
     }
 }
