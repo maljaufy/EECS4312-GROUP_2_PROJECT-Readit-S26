@@ -51,7 +51,7 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
         this.voteService = voteService;
         this.userSession = userSession;
         this.commentsView = new PostCommentsView(
-                commentService, userService, voteService);
+                commentService, userService, voteService,userSession);
 
         setSizeFull();
         setPadding(true);
@@ -171,13 +171,36 @@ public class PostDetailView extends VerticalLayout implements BeforeEnterObserve
         content.setSpacing(false);
         content.setWidthFull();
 
-        Span meta = new Span("r/" + post.getSubreddit().getName()
-                + "  \u2022  posted by u/" + post.getAuthor().getUsername()
-                + "  \u2022  " + TIME.format(post.getCreatedAt()));
-        meta.getStyle()
+        Span subredditLabel = new Span("r/" + post.getSubreddit().getName() + "  \u2022  posted by ");
+        subredditLabel.getStyle()
                 .set("color", "#7c7c7c")
                 .set("font-size", "12px")
                 .set("font-weight", "500");
+
+        Span usernameLink = new Span("u/" + post.getAuthor().getUsername());
+        usernameLink.getStyle()
+                .set("color", "#0079D3")
+                .set("font-size", "12px")
+                .set("font-weight", "600")
+                .set("cursor", "pointer");
+        usernameLink.getElement().addEventListener("mouseover", e ->
+                usernameLink.getStyle().set("text-decoration", "underline"));
+        usernameLink.getElement().addEventListener("mouseout", e ->
+                usernameLink.getStyle().set("text-decoration", "none"));
+        usernameLink.addClickListener(event ->
+                getUI().ifPresent(ui -> ui.navigate("profile/" + post.getAuthor().getUsername())));
+
+        Span timeLabel = new Span("  \u2022  " + TIME.format(post.getCreatedAt()));
+        timeLabel.getStyle()
+                .set("color", "#7c7c7c")
+                .set("font-size", "12px")
+                .set("font-weight", "500");
+
+        HorizontalLayout meta = new HorizontalLayout(subredditLabel, usernameLink, timeLabel);
+        meta.setSpacing(false);
+        meta.setPadding(false);
+        meta.setAlignItems(Alignment.BASELINE);
+        meta.getStyle().set("flex-wrap", "wrap");
 
         H2 title = new H2(post.getTitle());
         title.getStyle()

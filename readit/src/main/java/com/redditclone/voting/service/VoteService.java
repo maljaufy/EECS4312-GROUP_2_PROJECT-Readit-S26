@@ -138,9 +138,37 @@ public class VoteService {
                 score -> comment.setVoteScore(score));
     }
 
+    /**
+     * Applies the same Reddit-style toggle behavior as {@link #togglePostVote}:
+     * selecting the currently-active direction removes the vote; selecting the
+     * other direction switches it.
+     */
+    @Transactional
+    @Retry(name = "votePersistence")
+    public VoteResult toggleCommentVote(Long voterId, Long commentId, VoteValue value) {
+        Objects.requireNonNull(voterId, "voterId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        Objects.requireNonNull(value, "value must not be null");
+
+        Optional<VoteValue> currentVote = getCommentVote(voterId, commentId);
+        return currentVote.filter(value::equals).isPresent()
+                ? removeCommentVote(voterId, commentId)
+                : voteOnComment(voterId, commentId, value);
+    }
+
     @Transactional(readOnly = true)
     public int getCommentScore(Long commentId) {
         return getScore(VoteTargetType.COMMENT, commentId);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<VoteValue> getCommentVote(Long voterId, Long commentId) {
+        if (voterId == null || commentId == null) {
+            return Optional.empty();
+        }
+        return voteRepository.findByVoterIdAndTargetTypeAndTargetId(
+                        voterId, VoteTargetType.COMMENT, commentId)
+                .map(Vote::getValue);
     }
 
     private VoteResult vote(Long voterId, VoteTargetType targetType, Long targetId, Long authorId,
