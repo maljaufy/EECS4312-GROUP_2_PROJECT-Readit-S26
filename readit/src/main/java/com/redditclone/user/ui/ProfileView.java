@@ -1,5 +1,6 @@
 package com.redditclone.user.ui;
 
+import com.redditclone.shared.security.UserSession;
 import com.redditclone.shared.ui.MainLayout;
 import com.redditclone.user.dto.UserProfileDto;
 import com.redditclone.user.service.UserService;
@@ -27,7 +28,6 @@ import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.spring.annotation.UIScope;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 
@@ -42,6 +42,9 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private UserSession userSession;
 
     private UserProfileDto currentProfile;
     private String viewedUsername;
@@ -110,8 +113,8 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         getContent().setAlignItems(Alignment.CENTER);
         getContent().setJustifyContentMode(JustifyContentMode.CENTER);
         getContent().getStyle()
-            .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
-            .set("padding", "40px 20px");
+                .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
+                .set("padding", "40px 20px");
 
         // Main container
         VerticalLayout mainContainer = new VerticalLayout();
@@ -129,16 +132,16 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
         H2 logo = new H2("📱 Readit");
         logo.getStyle()
-            .set("margin", "0")
-            .set("color", "#F5DEB3");
+                .set("margin", "0")
+                .set("color", "#F5DEB3");
 
         Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
         logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
         logoutButton.getStyle()
-            .set("background", "#D2B48C")
-            .set("color", "#333")
-            .set("font-weight", "600")
-            .set("padding", "8px 16px");
+                .set("background", "#D2B48C")
+                .set("color", "#333")
+                .set("font-weight", "600")
+                .set("padding", "8px 16px");
         logoutButton.addClickListener(e -> handleLogout());
 
         headerLayout.add(logo, logoutButton);
@@ -159,8 +162,8 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         VerticalLayout userInfo = new VerticalLayout();
         usernameHeader = new H1(currentProfile.getUsername());
         usernameHeader.getStyle()
-            .set("margin", "0")
-            .set("color", "#F5DEB3");
+                .set("margin", "0")
+                .set("color", "#F5DEB3");
 
         userInfo.add(usernameHeader, createKarmaDisplay());
 
@@ -261,10 +264,8 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
     }
 
     private void handleLogout() {
-        SecurityContextHolder.clearContext();
         getUI().ifPresent(ui -> {
-            ui.getSession().setAttribute("jwt", null);
-            ui.getSession().setAttribute("username", null);
+            userSession.clear(ui);
             ui.navigate("");
         });
     }

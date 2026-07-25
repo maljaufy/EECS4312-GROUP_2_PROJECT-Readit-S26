@@ -1,6 +1,7 @@
 package com.redditclone.user.service;
 
 import com.redditclone.shared.event.EventPublisher;
+import com.redditclone.shared.security.UserSession;
 import com.redditclone.user.domain.NotificationPreference;
 import com.redditclone.user.domain.Role;
 import com.redditclone.user.domain.User;
@@ -8,6 +9,7 @@ import com.redditclone.user.dto.UserProfileDto;
 import com.redditclone.user.event.UserRegisteredEvent;
 import com.redditclone.user.repository.NotificationPreferenceRepository;
 import com.redditclone.user.repository.UserRepository;
+import com.vaadin.flow.component.UI;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,6 +39,7 @@ public class UserService {
     private final AuthenticationManager authenticationManager;
     private final EventPublisher eventPublisher;
     private final NotificationPreferenceRepository notificationPreferenceRepository;
+    private final UserSession userSession;
 
     /**
      * Registers a new user.
@@ -202,16 +205,28 @@ public class UserService {
 
     /**
      * Gets the currently authenticated user.
+     * <p>
+     * Reads the user ID out of the Vaadin/HTTP session (populated at login by
+     * {@code AuthenticationSessionService.signIn() -> UserSession.establish()}),
+     * rather than depending on {@code SecurityContextHolder}. This avoids relying
+     * on {@code JwtAuthenticationFilter} having already run and populated the
+     * security context before this method is called on a given request/thread.
      *
      * @return the current user
-     * @throws IllegalStateException if no user is authenticated
+     * @throws IllegalStateException if no user is currently logged in
      */
     public User getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+        UI ui = UI.getCurrent();
+        if (ui == null) {
             throw new IllegalStateException("No user is currently logged in.");
         }
-        return findByUsername(auth.getName());
+
+        Long userId = userSession.currentUserId(ui);
+        if (userId == null) {
+            throw new IllegalStateException("No user is currently logged in.");
+        }
+
+        return findById(userId);
     }
 
     /**
