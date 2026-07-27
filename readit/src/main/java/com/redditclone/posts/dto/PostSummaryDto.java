@@ -1,5 +1,6 @@
 package com.redditclone.posts.dto;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 public record PostSummaryDto(
@@ -9,5 +10,5 @@ public record PostSummaryDto(
         String authorUsername,
         String subredditName,
         LocalDateTime createdAt
-) {
+) implements Serializable {
 }
