@@ -7,11 +7,15 @@ import com.redditclone.posts.domain.PostSortOption;
 import com.redditclone.posts.dto.PostDto;
 import com.redditclone.posts.dto.PostSummaryDto;
 import com.redditclone.posts.repository.PostRepository;
+import com.redditclone.shared.config.CacheConfig;
 import com.redditclone.subreddit.domain.Subreddit;
 import com.redditclone.subreddit.service.SubredditService;
 import com.redditclone.user.domain.User;
 import com.redditclone.voting.domain.VoteTargetType;
 import com.redditclone.voting.repository.VoteRepository;
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,18 +32,22 @@ public class PostService {
     private final SubredditService subredditService;
     private final CommentRepository commentRepository;
     private final VoteRepository voteRepository;
+    private final ObservationRegistry observationRegistry;
 
     public PostService(PostRepository postRepository,
                        SubredditService subredditService,
                        CommentRepository commentRepository,
-                       VoteRepository voteRepository) {
+                       VoteRepository voteRepository,
+                       ObservationRegistry observationRegistry) {
         this.postRepository = postRepository;
         this.subredditService = subredditService;
         this.commentRepository = commentRepository;
         this.voteRepository = voteRepository;
+        this.observationRegistry = observationRegistry;
     }
 
     @Transactional
+    @CacheEvict(value = CacheConfig.POST_FEED_CACHE, allEntries = true)
     public Post createPost(String title, String content, Long subredditId, User author) {
         String cleanTitle = title == null ? "" : title.trim();
         if (cleanTitle.isEmpty()) {
@@ -52,6 +60,7 @@ public class PostService {
 
     /** Compatibility entry point for the existing Vaadin view and service tests. */
     @Transactional
+    @CacheEvict(value = CacheConfig.POST_FEED_CACHE, allEntries = true)
     public Post createPost(PostDto dto, User author) {
         if (dto == null) {
             throw new IllegalArgumentException("Post must not be null.");
@@ -60,6 +69,7 @@ public class PostService {
     }
 
     @Transactional
+    @CacheEvict(value = CacheConfig.POST_FEED_CACHE, allEntries = true)
     public Post updatePost(Long postId, String title, String content, Long editorId) {
         Post post = requirePost(postId);
         requireAuthor(post, editorId);
@@ -75,6 +85,7 @@ public class PostService {
     }
 
     @Transactional
+    @CacheEvict(value = CacheConfig.POST_FEED_CACHE, allEntries = true)
     public void deletePost(Long postId, Long requesterId) {
         Post post = requirePost(postId);
         requireAuthor(post, requesterId);
@@ -101,18 +112,31 @@ public class PostService {
         return requirePost(postId).getAuthor().getId().equals(userId);
     }
 
+    @Cacheable(value = CacheConfig.POST_FEED_CACHE, key = "'NEW'")
     @Transactional(readOnly = true)
     public List<PostSummaryDto> getFeed() {
-        return getFeed(PostSortOption.NEW);
+        return loadFeed(PostSortOption.NEW);
     }
 
+    @Cacheable(value = CacheConfig.POST_FEED_CACHE, key = "#sort == null ? 'NEW' : #sort.name()")
     @Transactional(readOnly = true)
     public List<PostSummaryDto> getFeed(PostSortOption sort) {
-        PostSortOption option = sort == null ? PostSortOption.NEW : sort;
-        return postRepository.findAllWithDetails().stream()
-                .sorted(comparatorFor(option))
-                .map(PostService::toSummary)
-                .toList();
+        return loadFeed(sort == null ? PostSortOption.NEW : sort);
+    }
+
+    /**
+     * The read side of the feed. Runs only on a cache miss, so this database
+     * read is what a Zipkin trace and the feed latency metric measure. On a
+     * cache hit the whole method is skipped and the feed comes back from Redis.
+     */
+    private List<PostSummaryDto> loadFeed(PostSortOption option) {
+        return io.micrometer.observation.Observation
+                .createNotStarted("readit.posts.feed", observationRegistry)
+                .lowCardinalityKeyValue("sort", option.name())
+                .observe(() -> postRepository.findAllWithDetails().stream()
+                        .sorted(comparatorFor(option))
+                        .map(PostService::toSummary)
+                        .toList());
     }
 
     @Transactional(readOnly = true)

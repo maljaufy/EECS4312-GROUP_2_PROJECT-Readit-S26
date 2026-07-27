@@ -11,9 +11,9 @@ import com.redditclone.voting.domain.VoteTargetType;
 import com.redditclone.voting.repository.VoteRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -48,13 +48,15 @@ class PostServiceEditDeleteTest {
     @Mock
     private VoteRepository voteRepository;
 
-    @InjectMocks
     private PostService postService;
 
     private Post post;
 
     @BeforeEach
     void setUp() {
+        postService = new PostService(postRepository, subredditService,
+                commentRepository, voteRepository, ObservationRegistry.NOOP);
+
         User author = new User();
         author.setId(AUTHOR_ID);
         author.setUsername("amr");

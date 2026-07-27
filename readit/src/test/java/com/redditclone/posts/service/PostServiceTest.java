@@ -9,9 +9,9 @@ import com.redditclone.subreddit.service.SubredditService;
 import com.redditclone.user.domain.User;
 import com.redditclone.voting.repository.VoteRepository;
 import org.junit.jupiter.api.DisplayName;
+import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,8 +38,13 @@ class PostServiceTest {
     @Mock
     private VoteRepository voteRepository;
 
-    @InjectMocks
     private PostService postService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void buildService() {
+        postService = new PostService(postRepository, subredditService,
+                commentRepository, voteRepository, ObservationRegistry.NOOP);
+    }
 
     @Test
     @DisplayName("creates a post when the title is valid")
