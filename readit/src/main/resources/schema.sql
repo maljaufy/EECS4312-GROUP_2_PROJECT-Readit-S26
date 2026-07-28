@@ -191,6 +191,6 @@ CREATE TABLE notification_preferences (
     updated_by VARCHAR(255),
     version BIGINT NOT NULL
 );
-"
+
 
 CREATE INDEX idx_comments_parent ON comments(parent_comment_id);
