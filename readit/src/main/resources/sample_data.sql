@@ -107,32 +107,32 @@ WHERE p.title LIKE 'How do you decide between polymorphic%' AND u.username = 'bo
 -- ============================================================
 
 -- Upvotes on post 1
-INSERT INTO votes (voter_id, target_type, target_id, value)
+INSERT INTO votes (voter_id, target_type, target_id, vote_value)
 SELECT u.id, 'POST', p.id, 'UPVOTE'
 FROM users u, posts p
 WHERE p.title LIKE 'Why does @Transactional%'
   AND u.username IN ('bob_builds', 'carla_designs', 'dave_lurks');
 
 -- One downvote on post 2 (controversial-ish)
-INSERT INTO votes (voter_id, target_type, target_id, value)
+INSERT INTO votes (voter_id, target_type, target_id, vote_value)
 SELECT u.id, 'POST', p.id, 'DOWNVOTE'
 FROM users u, posts p
 WHERE p.title LIKE 'Vaadin vs React%' AND u.username = 'dave_lurks';
 
-INSERT INTO votes (voter_id, target_type, target_id, value)
+INSERT INTO votes (voter_id, target_type, target_id, vote_value)
 SELECT u.id, 'POST', p.id, 'UPVOTE'
 FROM users u, posts p
 WHERE p.title LIKE 'Vaadin vs React%' AND u.username = 'carla_designs';
 
 -- Upvotes on the top comment in post 1's thread
-INSERT INTO votes (voter_id, target_type, target_id, value)
+INSERT INTO votes (voter_id, target_type, target_id, vote_value)
 SELECT u.id, 'COMMENT', c.id, 'UPVOTE'
 FROM users u, comments c
 WHERE c.body LIKE 'This is almost always%'
   AND u.username IN ('alice_codes', 'carla_designs', 'dave_lurks');
 
 -- A downvote on the "self-injection feels like a hack" reply
-INSERT INTO votes (voter_id, target_type, target_id, value)
+INSERT INTO votes (voter_id, target_type, target_id, vote_value)
 SELECT u.id, 'COMMENT', c.id, 'DOWNVOTE'
 FROM users u, comments c
 WHERE c.body LIKE 'Self-injection feels like a hack%'

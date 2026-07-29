@@ -8,8 +8,9 @@ import com.vaadin.flow.component.Composite;
 import com.vaadin.flow.component.avatar.Avatar;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -34,11 +35,7 @@ import java.time.format.DateTimeFormatter;
 @Route(value = "profile", layout = MainLayout.class)
 @PageTitle("Profile | Reddit Clone")
 @UIScope
-public class ProfileView extends Composite<VerticalLayout> implements HasUrlParameter<String>{
-    /*
-    Profile view: Main profile view: User profile view
-    i.e. Profile UI
-    */
+public class ProfileView extends Composite<VerticalLayout> implements HasUrlParameter<String> {
 
     @Autowired
     private UserService userService;
@@ -48,13 +45,9 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
 
     private UserProfileDto currentProfile;
     private String viewedUsername;
+    private boolean isOwnProfile;
 
-    private Avatar avatar;
-    private H1 usernameHeader;
     private Span karmaValue;
-    private Paragraph joinedDate;
-    private Paragraph postCount;
-    private Paragraph commentCount;
     private TextArea bioDisplay;
     private TextArea bioEdit;
     private Button editToggleButton;
@@ -77,28 +70,37 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
     private void updateKarmaDisplay() {
         int karma = currentProfile.getKarma();
         karmaValue.setText(String.valueOf(karma));
-        karmaValue.getStyle().set("font-weight", karma == 0 ? "normal" : "bold");
+        karmaValue.getStyle().set("font-weight", "700");
         if (karma > 0) {
-            karmaValue.getStyle().set("color", "var(--lumo-success-color)");
+            karmaValue.getStyle().set("color", "#2e7d32");
         } else if (karma < 0) {
-            karmaValue.getStyle().set("color", "var(--lumo-error-color)");
+            karmaValue.getStyle().set("color", "#c62828");
         } else {
-            karmaValue.getStyle().set("color", "var(--lumo-secondary-text-color)");
+            karmaValue.getStyle().set("color", "#7c7c7c");
         }
     }
 
     @Override
     public void setParameter(BeforeEvent event, @OptionalParameter String username) {
+        String currentUsername;
+        try {
+            currentUsername = userService.getCurrentUser().getUsername();
+        } catch (IllegalStateException e) {
+            currentUsername = null;
+        }
+
         if (username == null || username.isEmpty()) {
-            try {
-                this.viewedUsername = userService.getCurrentUser().getUsername();
-            } catch (IllegalStateException e) {
+            if (currentUsername == null) {
                 getUI().ifPresent(ui -> ui.navigate("login"));
                 return;
             }
+            this.viewedUsername = currentUsername;
         } else {
             this.viewedUsername = username;
         }
+
+        this.isOwnProfile = currentUsername != null && currentUsername.equals(viewedUsername);
+
         loadProfile();
         renderProfile();
     }
@@ -111,82 +113,175 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         getContent().removeAll();
         getContent().setSizeFull();
         getContent().setAlignItems(Alignment.CENTER);
-        getContent().setJustifyContentMode(JustifyContentMode.CENTER);
+        getContent().setPadding(false);
+        getContent().setSpacing(false);
         getContent().getStyle()
-                .set("background", "linear-gradient(135deg, #556B2F 0%, #8B7355 100%)")
-                .set("padding", "40px 20px");
+                .set("background", "#DAE0E6")
+                .set("padding", "32px 20px")
+                .set("box-sizing", "border-box");
 
-        // Main container
         VerticalLayout mainContainer = new VerticalLayout();
-        mainContainer.setMaxWidth("800px");
+        mainContainer.setMaxWidth("720px");
         mainContainer.setWidthFull();
         mainContainer.setPadding(false);
-        mainContainer.setSpacing(true);
+        mainContainer.setSpacing(false);
 
-        // Header with logout button
-        HorizontalLayout headerLayout = new HorizontalLayout();
-        headerLayout.setWidthFull();
-        headerLayout.setJustifyContentMode(JustifyContentMode.BETWEEN);
-        headerLayout.setAlignItems(Alignment.CENTER);
-        headerLayout.getStyle().set("margin-bottom", "20px");
+        mainContainer.add(
+                createBanner(),
+                createStatsCard(),
+                createBioCard(),
+                createNavigationLinks()
+        );
 
-        H2 logo = new H2("📱 Readit");
-        logo.getStyle()
-                .set("margin", "0")
-                .set("color", "#F5DEB3");
+        getContent().add(mainContainer);
+    }
 
-        Button logoutButton = new Button("Logout", VaadinIcon.SIGN_OUT.create());
-        logoutButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
-        logoutButton.getStyle()
-                .set("background", "#D2B48C")
-                .set("color", "#333")
-                .set("font-weight", "600")
-                .set("padding", "8px 16px");
-        logoutButton.addClickListener(e -> handleLogout());
+    /** Reddit-style profile banner: gradient, avatar, username, karma. */
+    private Div createBanner() {
+        Div banner = new Div();
+        banner.getStyle()
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "linear-gradient(135deg, #0079D3 0%, #0057A3 100%)")
+                .set("border-radius", "8px 8px 0 0")
+                .set("padding", "32px 24px")
+                .set("display", "flex")
+                .set("align-items", "center")
+                .set("gap", "20px")
+                .set("flex-wrap", "wrap");
 
-        headerLayout.add(logo, logoutButton);
-        mainContainer.add(headerLayout);
-
-        // Header with avatar and username
-        HorizontalLayout header = new HorizontalLayout();
-        header.setAlignItems(Alignment.CENTER);
-        header.setSpacing(true);
-
-        avatar = new Avatar(currentProfile.getUsername());
+        Avatar avatar = new Avatar(currentProfile.getUsername());
         if (currentProfile.getProfileImageUrl() != null && !currentProfile.getProfileImageUrl().isEmpty()) {
             avatar.setImage(currentProfile.getProfileImageUrl());
         }
-        avatar.setWidth("80px");
-        avatar.setHeight("80px");
+        avatar.setWidth("84px");
+        avatar.setHeight("84px");
+        avatar.getStyle()
+                .set("border", "4px solid white")
+                .set("box-shadow", "0 2px 6px rgba(0,0,0,0.2)");
 
         VerticalLayout userInfo = new VerticalLayout();
-        usernameHeader = new H1(currentProfile.getUsername());
+        userInfo.setSpacing(false);
+        userInfo.setPadding(false);
+        userInfo.getStyle().set("flex-grow", "1");
+
+        H1 usernameHeader = new H1("u/" + currentProfile.getUsername());
         usernameHeader.getStyle()
                 .set("margin", "0")
-                .set("color", "#F5DEB3");
+                .set("color", "white")
+                .set("font-size", "26px")
+                .set("font-weight", "700")
+                .set("text-shadow", "0 1px 3px rgba(0,0,0,0.3)");
 
         userInfo.add(usernameHeader, createKarmaDisplay());
 
-        header.add(avatar, userInfo);
-        mainContainer.add(header);
+        banner.add(avatar, userInfo);
 
-        // Stats
-        HorizontalLayout stats = new HorizontalLayout();
-        stats.setSpacing(true);
+        if (isOwnProfile) {
+            editToggleButton = new Button("Edit Profile", e -> toggleEdit());
+            editToggleButton.getStyle()
+                    .set("background", "white")
+                    .set("color", "#0079D3")
+                    .set("font-weight", "700")
+                    .set("border-radius", "20px")
+                    .set("padding", "8px 20px")
+                    .set("flex-shrink", "0");
+            banner.add(editToggleButton);
+        }
 
-        joinedDate = new Paragraph("Joined: " + currentProfile.getJoinedAt().format(DateTimeFormatter.ofPattern("MMMM d, yyyy")));
-        joinedDate.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        return banner;
+    }
 
-        postCount = new Paragraph("Posts: " + currentProfile.getPostCount());
-        commentCount = new Paragraph("Comments: " + currentProfile.getCommentCount());
+    private HorizontalLayout createKarmaDisplay() {
+        HorizontalLayout display = new HorizontalLayout();
+        display.setSpacing(true);
+        display.setAlignItems(Alignment.CENTER);
+        display.getStyle().set("margin-top", "4px");
 
-        stats.add(joinedDate, postCount, commentCount);
-        mainContainer.add(stats);
+        Icon karmaIcon = VaadinIcon.STAR.create();
+        karmaIcon.getStyle().set("color", "#FFD700");
+        karmaIcon.setSize("16px");
 
-        // Bio
+        karmaValue = new Span();
+        updateKarmaDisplay();
+
+        Span label = new Span("karma");
+        label.getStyle()
+                .set("color", "rgba(255,255,255,0.85)")
+                .set("font-size", "13px");
+
+        display.add(karmaIcon, karmaValue, label);
+        return display;
+    }
+
+    private Div createStatsCard() {
+        Div card = new Div();
+        card.getStyle()
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-top", "none")
+                .set("padding", "16px 24px")
+                .set("display", "flex")
+                .set("gap", "32px")
+                .set("flex-wrap", "wrap");
+
+        card.add(
+                statItem("Joined", currentProfile.getJoinedAt().format(DateTimeFormatter.ofPattern("MMMM d, yyyy"))),
+                statItem("Posts", String.valueOf(currentProfile.getPostCount())),
+                statItem("Comments", String.valueOf(currentProfile.getCommentCount()))
+        );
+
+        return card;
+    }
+
+    private VerticalLayout statItem(String label, String value) {
+        VerticalLayout item = new VerticalLayout();
+        item.setSpacing(false);
+        item.setPadding(false);
+
+        Span valueSpan = new Span(value);
+        valueSpan.getStyle()
+                .set("font-weight", "700")
+                .set("font-size", "15px")
+                .set("color", "#1c1c1c");
+
+        Span labelSpan = new Span(label);
+        labelSpan.getStyle()
+                .set("font-size", "12px")
+                .set("color", "#7c7c7c")
+                .set("text-transform", "uppercase")
+                .set("letter-spacing", "0.5px");
+
+        item.add(valueSpan, labelSpan);
+        return item;
+    }
+
+    private Div createBioCard() {
+        Div card = new Div();
+        card.getStyle()
+                .set("width", "100%")
+                .set("box-sizing", "border-box")
+                .set("background", "white")
+                .set("border", "1px solid #ccc")
+                .set("border-top", "none")
+                .set("border-radius", "0 0 8px 8px")
+                .set("padding", "20px 24px")
+                .set("margin-bottom", "16px");
+
+        H3 bioHeader = new H3("About");
+        bioHeader.getStyle()
+                .set("margin", "0 0 12px 0")
+                .set("font-size", "14px")
+                .set("font-weight", "700")
+                .set("color", "#1c1c1c")
+                .set("text-transform", "uppercase")
+                .set("letter-spacing", "0.5px");
+
         bioDisplay = new TextArea();
-        bioDisplay.setLabel("Bio");
         bioDisplay.setValue(currentProfile.getBio() != null ? currentProfile.getBio() : "");
+        bioDisplay.setPlaceholder("This user hasn't written a bio yet.");
         bioDisplay.setReadOnly(true);
         bioDisplay.setWidthFull();
 
@@ -196,47 +291,50 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
         bioEdit.setWidthFull();
         bioEdit.setVisible(false);
 
-        mainContainer.add(bioDisplay, bioEdit);
+        card.add(bioHeader, bioDisplay, bioEdit);
 
-        // Edit buttons (only if viewing own profile)
-        try {
-            String currentUsername = userService.getCurrentUser().getUsername();
-            if (currentUsername.equals(viewedUsername)) {
-                editToggleButton = new Button("Edit Profile", e -> toggleEdit());
-                saveButton = new Button("Save", e -> saveProfile());
-                saveButton.setVisible(false);
-                HorizontalLayout buttonLayout = new HorizontalLayout(editToggleButton, saveButton);
-                mainContainer.add(buttonLayout);
-            }
-        } catch (IllegalStateException e) {
-            // Not logged in - no edit buttons
+        if (isOwnProfile) {
+            saveButton = new Button("Save", e -> saveProfile());
+            saveButton.getStyle()
+                    .set("background", "#0079D3")
+                    .set("color", "white")
+                    .set("font-weight", "700")
+                    .set("border-radius", "20px")
+                    .set("margin-top", "12px");
+            saveButton.setVisible(false);
+            card.add(saveButton);
         }
 
-        // Navigation
-        RouterLink backToFeed = new RouterLink("← Back to Feed", com.redditclone.posts.ui.FeedView.class);
-        backToFeed.getStyle().set("color", "#F5DEB3");
-        mainContainer.add(backToFeed);
-
-        RouterLink preferencesLink = new RouterLink("Notification Preferences", NotificationPreferencesView.class);
-        preferencesLink.getStyle().set("color", "#F5DEB3");
-        mainContainer.add(preferencesLink);
-
-        getContent().add(mainContainer);
+        return card;
     }
 
-    private HorizontalLayout createKarmaDisplay() {
-        HorizontalLayout display = new HorizontalLayout();
-        display.setSpacing(true);
-        display.setAlignItems(Alignment.CENTER);
+    private HorizontalLayout createNavigationLinks() {
+        HorizontalLayout nav = new HorizontalLayout();
+        nav.setWidthFull();
+        nav.setJustifyContentMode(JustifyContentMode.CENTER);
+        nav.setSpacing(true);
+        nav.getStyle().set("margin-top", "16px").set("flex-wrap", "wrap");
 
-        Icon karmaIcon = VaadinIcon.STAR.create();
-        karmaIcon.getStyle().set("color", "var(--lumo-primary-color)");
-        karmaIcon.setSize("16px");
+        RouterLink backToFeed = new RouterLink("\u2190 Back to Feed", com.redditclone.posts.ui.FeedView.class);
+        styleNavLink(backToFeed);
+        nav.add(backToFeed);
 
-        karmaValue = new Span();
-        updateKarmaDisplay();
-        display.add(karmaIcon, karmaValue);
-        return display;
+        // Only the profile owner can see/manage their own notification settings.
+        if (isOwnProfile) {
+            RouterLink preferencesLink = new RouterLink("Notification Preferences", NotificationPreferencesView.class);
+            styleNavLink(preferencesLink);
+            nav.add(preferencesLink);
+        }
+
+        return nav;
+    }
+
+    private void styleNavLink(RouterLink link) {
+        link.getStyle()
+                .set("color", "#0079D3")
+                .set("font-weight", "600")
+                .set("font-size", "14px")
+                .set("text-decoration", "none");
     }
 
     private void toggleEdit() {
@@ -256,17 +354,10 @@ public class ProfileView extends Composite<VerticalLayout> implements HasUrlPara
             );
             currentProfile = updated;
             loadProfile(); // Reload
-            toggleEdit(); // Exit edit mode
+            renderProfile(); // Re-render with fresh data
             Notification.show("Profile updated successfully!", 3000, Notification.Position.MIDDLE);
         } catch (Exception e) {
             Notification.show("Error updating profile: " + e.getMessage(), 5000, Notification.Position.MIDDLE);
         }
-    }
-
-    private void handleLogout() {
-        getUI().ifPresent(ui -> {
-            userSession.clear(ui);
-            ui.navigate("");
-        });
     }
 }
