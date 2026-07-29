@@ -509,6 +509,7 @@ public class FeedView extends VerticalLayout {
     private Component card(PostSummaryDto post) {
         // Main card container
         Div card = new Div();
+        card.setWidthFull();
         card.getStyle()
                 .set("background", "white")
                 .set("border", "1px solid #ccc")
@@ -572,6 +573,7 @@ public class FeedView extends VerticalLayout {
                 .set("flex-grow", "1")
                 .set("padding", "12px")
                 .set("display", "flex")
+                .set("width","100%")
                 .set("flex-direction", "column");
 
         // Post metadata: "r/<subreddit>  •  posted by u/<username>  •  <time>"
@@ -665,6 +667,20 @@ public class FeedView extends VerticalLayout {
                 .set("font-weight", "600")
                 .set("padding", "4px 8px")
                 .set("cursor", "pointer");
+        shareBtn.addClickListener(event -> {
+            getUI().ifPresent(ui -> {
+                // Build the full absolute URL using the browser's current origin
+                ui.getPage().executeJs(
+                        "return window.location.origin"
+                ).then(String.class, origin -> {
+                    String postUrl = origin + "/post/" + post.id();
+                    ui.getPage().executeJs(
+                            "navigator.clipboard.writeText($0)", postUrl
+                    );
+                    Notification.show("Link copied to clipboard!", 2_000, Notification.Position.BOTTOM_CENTER);
+                });
+            });
+        });
 
         Button saveBtn = new Button("🔖 Save");
         saveBtn.getStyle()
