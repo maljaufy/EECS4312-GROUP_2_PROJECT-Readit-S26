@@ -1,22 +1,15 @@
 # =============================================================================
-# Readit - Local development infrastructure
+# Readit - Full stack (infra + app)
 # =============================================================================
-# Brings up the backing services the whole team runs locally while developing
-# the Spring Boot + Vaadin application:
-#
-#   - PostgreSQL : primary database (users, posts, comments, votes, subreddits,
-#                  outbox, processed_events)
+#   - PostgreSQL : primary database
 #   - Redis      : cache / CQRS materialised feed views / session store
-#   - Kafka      : event streaming (post.events, vote.events, comment.events,
-#                  notification.events, outbox)
+#   - Kafka      : event streaming
 #   - Zookeeper  : coordination service required by Kafka in this version
-#
-# The Spring Boot app itself is NOT in here. You run it from IntelliJ against
-# these services during development. An app service can be added later for the
-# full containerised deployment (Phase 6).
+#   - app        : the Spring Boot + Vaadin application itself
 #
 # Usage:
-#   docker compose up -d                 # start the four core services
+#   mvn "spring-boot:build-image" "-Dspring-boot.build-image.imageName=readit-app" "-Dvaadin.productionMode=true"
+#   docker compose up -d                 # start everything, including the app
 #   docker compose ps                    # check status / health
 #   docker compose --profile tools up -d # also start the Kafka UI (port 8080)
 #   docker compose down                  # stop (keeps data)
@@ -49,15 +42,6 @@ services:
   # ---------------------------------------------------------------------------
   # Kafka - event streaming broker
   # ---------------------------------------------------------------------------
-  # Two listeners are configured so the broker is reachable both ways:
-  #   INTERNAL (kafka:29092)     -> used by other containers on readit-net
-  #                                 (e.g. the Kafka UI, or the app once
-  #                                 containerised)
-  #   EXTERNAL (localhost:9092)  -> used by the Spring Boot app running on your
-  #                                 host machine from the IDE
-  # This dual-listener setup is what avoids the classic "works in the container
-  # but not from my app" connection problem.
-  # ---------------------------------------------------------------------------
   kafka:
     image: confluentinc/cp-kafka:7.9.0
     container_name: readit-kafka
@@ -73,14 +57,10 @@ services:
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      # Single-node cluster, so everything is replication factor 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      # Convenience for early development. The team should still create the
-      # project topics explicitly (partitions / config) once the event work
-      # lands. See the README for the commands.
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
@@ -124,7 +104,6 @@ services:
     container_name: readit-redis
     ports:
       - "6379:6379"
-    # appendonly keeps data across restarts; drop it if you want a pure cache
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -138,11 +117,42 @@ services:
       - readit-net
 
   # ---------------------------------------------------------------------------
-  # Kafka UI (OPTIONAL) - web dashboard to inspect topics, messages, consumers
+  # app - the Spring Boot + Vaadin application
   # ---------------------------------------------------------------------------
-  # Not part of the required stack. Only starts when you opt in with:
-  #   docker compose --profile tools up -d
-  # Then open http://localhost:8080
+  # Built separately via:
+  #   mvn "spring-boot:build-image" "-Dspring-boot.build-image.imageName=readit-app" "-Dvaadin.productionMode=true"
+  # This produces a local image called readit-app, which this service just runs.
+  # ---------------------------------------------------------------------------
+  app:
+    image: readit-app
+    container_name: readit-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - delta-lake-data:/workspace/delta-lake
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-readit}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-readit}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-readit}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      VAADIN_PRODUCTION_MODE: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "0"
+    networks:
+      - readit-net
+
+  # ---------------------------------------------------------------------------
+  # Kafka UI (OPTIONAL) - web dashboard to inspect topics, messages, consumers
   # ---------------------------------------------------------------------------
   kafka-ui:
     image: ghcr.io/kafbat/kafka-ui:latest
@@ -152,7 +162,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_NAME: readit-local
@@ -160,16 +170,13 @@ services:
     networks:
       - readit-net
 
-# -----------------------------------------------------------------------------
-# Named volumes keep your data between `docker compose down` and `up`.
-# Use `docker compose down -v` to wipe everything and start clean.
-# -----------------------------------------------------------------------------
 volumes:
   zookeeper-data:
   zookeeper-log:
   kafka-data:
   postgres-data:
   redis-data:
+  delta-lake-data:
 
 networks:
   readit-net:
