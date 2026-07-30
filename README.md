@@ -21,8 +21,8 @@ from your IDE and connects to these services.
 ## Quick start
 
 ```bash
-# from the folder that contains docker-compose.yml
-docker compose up -d
+# from the folder that contains the Compose files
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 
 # check everything is up and healthy
 docker compose ps
@@ -31,11 +31,32 @@ docker compose ps
 Wait until Postgres, Redis, and Kafka all show `healthy`. Kafka takes the
 longest (it waits for Zookeeper first).
 
-To also start the optional Kafka dashboard:
+The local override excludes the `app` container. Run the Spring Boot application
+from IntelliJ (or with Maven) while Compose supplies only PostgreSQL, Redis, and
+Kafka. Spring Boot uses both Compose files automatically, which prevents it from
+trying to launch a second copy of the application.
+
+Run `RedditCloneApplication.java` with the repository root as its working
+directory. To launch with Maven from that same directory, use:
 
 ```bash
-docker compose --profile tools up -d
-# then open http://localhost:8080
+mvn -f readit/pom.xml spring-boot:run
+```
+
+Production continues to use the base Compose file without the local override:
+
+```bash
+cd readit
+mvn "spring-boot:build-image" "-Dspring-boot.build-image.imageName=readit-app" "-Dvaadin.productionMode=true"
+cd ..
+docker compose up -d
+```
+
+To also start the optional Kafka dashboard locally:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile tools up -d
+# then open http://localhost:8081
 ```
 
 ## Verifying each service

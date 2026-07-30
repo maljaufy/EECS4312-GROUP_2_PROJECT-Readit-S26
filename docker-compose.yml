@@ -11,7 +11,7 @@
 #   mvn "spring-boot:build-image" "-Dspring-boot.build-image.imageName=readit-app" "-Dvaadin.productionMode=true"
 #   docker compose up -d                 # start everything, including the app
 #   docker compose ps                    # check status / health
-#   docker compose --profile tools up -d # also start the Kafka UI (port 8080)
+#   docker compose --profile tools up -d # also start the Kafka UI (port 8081)
 #   docker compose down                  # stop (keeps data)
 #   docker compose down -v               # stop and wipe all data volumes
 # =============================================================================

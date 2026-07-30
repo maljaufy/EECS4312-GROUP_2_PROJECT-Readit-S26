@@ -1,0 +1,8 @@
+# Local development override.
+#
+# The Spring Boot application runs on the host from IntelliJ or Maven, so hide
+# the containerized application unless its deployment profile is requested
+# explicitly. The shared docker-compose.yml remains unchanged for production.
+services:
+  app:
+    profiles: ["deployment"]
