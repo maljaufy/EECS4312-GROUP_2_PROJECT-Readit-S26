@@ -2,7 +2,7 @@
 
 This Docker Compose stack runs the backing services the team needs while
 building the Readit application. The Spring Boot + Vaadin app runs separately
-from your IDE and connects to these services.
+from your IDE and connects to these services. A live deployment can be found [here](http://206.189.225.95:8080/)
 
 ## Services
 
